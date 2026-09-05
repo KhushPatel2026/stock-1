@@ -16,17 +16,26 @@ def _has_real_chain(ticker: str) -> bool:
         return False
 
 
-def covered_call_real(ticker: str, capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06) -> tuple[list, pd.DataFrame]:
-    """Covered call using real yfinance option chain when available.
+def _nse_iv(ticker: str) -> float | None:
+    try:
+        from src.nse_options import atm_iv
+        return atm_iv(ticker)
+    except Exception:
+        return None
 
-    If `ticker.options` is empty (typical for Indian .NS stocks), falls back to
-    `src.options.covered_call_backtest` which uses a Black-Scholes synthetic chain.
+
+def covered_call_real(ticker: str, capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06) -> tuple[list, pd.DataFrame]:
+    """Covered call: NSE-calibrated BS -> yfinance chain -> pure BS fallback.
+
+    NSE ATM IV (when reachable) prices the synthetic calls; otherwise identical
+    behavior to before.
     """
+    iv = _nse_iv(ticker)
     if not _has_real_chain(ticker):
         # need a per-ticker data dict for the BS fallback
         from src.data import fetch
         df = fetch(ticker, period="2y")
-        return covered_call_backtest({ticker: df}, capital=capital, otm=otm, dte=dte, r=r)
+        return covered_call_backtest({ticker: df}, capital=capital, otm=otm, dte=dte, r=r, iv_override=iv)
 
     # Real chain path: build a per-day simulation using listed expiries closest to dte.
     from src.data import fetch
@@ -36,7 +45,7 @@ def covered_call_real(ticker: str, capital: float = 1_000_000, otm: float = 0.05
     t = yf.Ticker(ticker)
     expiries = list(t.options)
     if not expiries:
-        return covered_call_backtest(data, capital=capital, otm=otm, dte=dte, r=r)
+        return covered_call_backtest(data, capital=capital, otm=otm, dte=dte, r=r, iv_override=iv)
 
     cash = capital
     holdings = 0
@@ -116,5 +125,5 @@ META = {
     "name": "Covered Call (Real Chain)",
     "family": "Options",
     "params": {"capital": 1_000_000, "otm": 0.05, "dte": 30, "r": 0.06},
-    "description": "Covered call using real yfinance option chains; BS synthetic fallback when unavailable (.NS).",
+    "description": "Covered call: NSE ATM-IV calibrated when reachable, yfinance chain next, BS synthetic last.",
 }

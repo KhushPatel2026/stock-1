@@ -49,8 +49,10 @@ def _generate(prompt: str) -> str:
     return (r.text or "").strip()
 
 
-def explain_strategy(strategy_id: str, name: str, family: str, metrics: dict, user_question: str = "") -> str:
-    """Ask Gemini to explain a strategy's result in plain English for a trader."""
+def explain_strategy(strategy_id: str, name: str, family: str, metrics: dict, user_question: str = "",
+                     context: dict | None = None) -> str:
+    """Ask Gemini to explain a strategy's result in plain English for a trader.
+    `context` may include {tickers, recent_runs, user_holdings} for personalized advice."""
     if not is_available():
         return _fallback_explain(strategy_id, name, family, metrics)
 
@@ -60,19 +62,43 @@ def explain_strategy(strategy_id: str, name: str, family: str, metrics: dict, us
     max_dd = metrics.get("max_drawdown", 0) * 100
     n_bars = metrics.get("n_bars", 0)
 
+    ctx_lines = []
+    if context:
+        if context.get("tickers"):
+            ctx_lines.append(f"Tickers user is watching: {', '.join(context['tickers'][:10])}")
+        if context.get("recent_runs"):
+            recent = context["recent_runs"][:5]
+            ctx_lines.append("User recent backtest runs:")
+            for r in recent:
+                ctx_lines.append(
+                    f"  - {r.get('strategy_id', '?')} on {', '.join(r.get('tickers', [])[:3])} "
+                    f"({r.get('period', '?')}) -> Sharpe {r.get('sharpe', '?')}"
+                )
+        if context.get("user_holdings"):
+            holdings = context["user_holdings"][:8]
+            ctx_lines.append("User actual portfolio holdings:")
+            for h in holdings:
+                ctx_lines.append(
+                    f"  - {h.get('ticker', '?')}: avg INR {h.get('avg_price', 0):.0f} "
+                    f"({h.get('pnl_pct', 0):+.1f}%)"
+                )
+    context_block = "\n".join(ctx_lines) if ctx_lines else ""
+
     qline = f"\nThe user asked: {user_question}" if user_question else ""
+
     prompt = (
-        f"You are a quant analyst explaining a strategy's backtest result to a retail trader.\n\n"
+        f"You are a quant analyst explaining a strategy backtest result to a retail Indian trader.\n\n"
         f"Strategy: {name} ({strategy_id})\n"
         f"Family: {family}\n"
         f"Results: Sharpe {sharpe:.2f}, total return {total:.1f}%, CAGR {cagr:.1f}%, "
         f"max drawdown {max_dd:.1f}%, bars {n_bars}\n\n"
-        f"Explain in 3-4 sentences:\n"
-        f"1. What this strategy's result means (is the Sharpe good? Is the drawdown acceptable?)\n"
-        f"2. What market conditions would help or hurt this strategy\n"
-        f"3. One concrete suggestion for the trader"
+        f"{('User context:' + chr(10) + context_block) if context_block else ''}\n"
+        f"Explain in 3-5 sentences:\n"
+        f"1. What this result means for a retail trader (is Sharpe good? Is DD acceptable?)\n"
+        f"2. What market conditions favor this strategy\n"
+        f"3. A specific suggestion -- reference their tickers/holdings if relevant"
         f"{qline}\n\n"
-        f"Be direct, no fluff. No emojis. Plain text, no markdown headers."
+        f"Be direct, specific, no fluff. No emojis. No disclaimers."
     )
 
     try:
@@ -120,16 +146,41 @@ def explain_portfolio(holdings: list[dict], summary: dict) -> str:
 
 
 def personalized_insight(user_stats: dict) -> str:
-    """Based on what strategies user has run, suggest next actions."""
+    """Based on actual user context (tickers, holdings, runs), suggest next actions."""
     if not is_available():
         return _fallback_insight(user_stats)
 
+    ctx_lines = []
+    tickers = user_stats.get("watchlist") or user_stats.get("tickers") or []
+    holdings = user_stats.get("user_holdings") or user_stats.get("holdings") or []
+    recent = user_stats.get("recent_runs") or []
+    most_used = user_stats.get("most_used") or []
+
+    if tickers:
+        ctx_lines.append(f"Tickers user is watching: {', '.join(tickers[:10])}")
+    if holdings:
+        ctx_lines.append("User actual portfolio holdings:")
+        for h in holdings[:8]:
+            ctx_lines.append(f"  - {h.get('ticker', '?')}: avg INR {h.get('avg_price', 0):.0f} ({h.get('pnl_pct', 0):+.1f}%)")
+    if recent:
+        ctx_lines.append("Recent backtest runs:")
+        for r in recent[:8]:
+            ctx_lines.append(
+                f"  - {r.get('strategy_id', '?')} on {', '.join(r.get('tickers', [])[:3])} "
+                f"({r.get('period', '?')}) -> Sharpe {r.get('sharpe', '?')}"
+            )
+    if most_used:
+        ctx_lines.append(f"Most-used strategies: {', '.join(most_used[:5])}")
+
+    context_block = "\n".join(ctx_lines) if ctx_lines else "User has not yet run any backtests or added tickers."
+
     prompt = (
-        "You're a quant coach. Based on this user's stock-1 usage, "
-        "suggest 3 specific next actions they should take.\n\n"
-        f"Their stats:\n{json.dumps(user_stats, indent=2)}\n\n"
-        "Be very specific — name strategies, timeframes, tickers they should try. "
-        "No generic advice. No emojis. 3 short bullets."
+        "You are a quant coach for a retail Indian trader using stock-1.\n"
+        "Give 3 SPECIFIC next actions based on their actual usage below.\n"
+        "Reference tickers they watch, strategies they've run, and their real holdings.\n"
+        "No generic advice like 'try momentum' -- name the actual ticker and strategy.\n\n"
+        f"User context:\n{context_block}\n\n"
+        "Output exactly 3 short bullets. No emojis. No disclaimers. Plain text."
     )
 
     try:

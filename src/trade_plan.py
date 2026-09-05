@@ -87,6 +87,13 @@ def build_plan(
     w_total = sum(w for _, w in long_voters) + sum(w for _, w in short_voters) + 1e-9
     w_side = sum(w for _, w in voters) / w_total * 100
     n_total = len(long_voters) + len(short_voters)
+    if decision == "HOLD":
+        vote_bit = (f"split {len(long_voters)} long vs {len(short_voters)} short — "
+                    f"no consensus")
+    else:
+        vote_bit = (f"{len(voters)}/{n_total} strategies vote {decision} "
+                    f"with {w_side:.0f}% of OOS-Sharpe weight")
+    lead_bit = f", led by {' + '.join(leaders)}" if leaders else ""
 
     trend_bit = (
         "above" if sma200 is not None and price > sma200
@@ -102,7 +109,7 @@ def build_plan(
     else:
         action = f"No edge: wait outside ₹{sl:,.2f}–₹{tp:,.2f}. A close beyond the band with volume is the trigger."
     insight = (
-        f"{len(voters)}/{n_total} strategies vote {decision} with {w_side:.0f}% of OOS-Sharpe weight{lead_bit}. "
+        f"{vote_bit}{lead_bit}. "
         f"{ticker} {price_bit} ({day_chg:+.1f}% vs prev close){sma_bit}, 14d ATR ₹{a:,.2f} ({a / price * 100:.1f}%). "
         f"{action} {tf} holding ({tf_detail.lower()})."
     )

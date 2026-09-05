@@ -1,6 +1,31 @@
 # Changelog — Keep a Changelog, SemVer
 
 ## [Unreleased]
+### Fixed — wrong-price data bug (critical) + live prices + uniform cards
+- Root cause: yfinance frames were trusted blindly — crossed/multi-ticker responses
+  under parallel load silently put one ticker's price on another's card (INFY showed
+  HDFCBANK's ₹712.10, ITC showed TCS's ₹2,304). `src/data.py` rewritten: every download
+  is ticker-verified (mismatch → retry → skip, never silent), one process-wide lock,
+  per-(ticker, period, interval) CSV cache with 12h TTL (parquet engine was missing so
+  the old cache never hit — every call refetched).
+- Deleted 5 contaminated legacy cache files; verified all 5 screenshot tickers now distinct.
+- Live entries: `live_price()` (1m bars → fast_info → daily fallback) anchors plan
+  entry/SL/target; cards show "Entry · Live" + live timestamp.
+- Uniform cards: sign-aware percents (no more "+-6.51%"), HOLD cards say "split X long
+  vs Y short — no consensus", missing-plan fallback line, human strategy names
+  (XS Momentum 12-1, Short-Term Reversal, Turn-of-Month, ...).
+- Faster decisions: ONE shared 1y fetch feeds levels + all 89 OOS-weight runs
+  (`validation.chunk_oos/run_walk_forward` accept `data=`); per-ticker retry.
+### Added — free scrapers (no keys)
+- `src/screener.py`: screener.in top ratios (PE/ROE/ROCE/PB/DY/book/EPS/mcap), polite
+  1.5s spacing, {} on failure. Wired into `fetch_fundamentals` first, yfinance fills
+  debt/cash/EV gaps. Verified live: RELIANCE PE 23.9, ROE 8.9%, CMP matches tape.
+- `src/nse_options.py`: NSE equity chain handshake + ATM IV (24h cache, {} when blocked).
+  Wired into `covered_call_real` as NSE-IV calibration for the BS fallback (`iv_override`).
+- BacktestPanel: 1D/3D/1W/2W/1M quick-period presets above the horizon selector.
+- Tests: `test_data_verify.py` (ticker-mismatch rejection, cache scoping, scraper fallbacks),
+  live-entry + HOLD-split assertions in `test_trade_plan.py`; upstox suite hermetic
+  (expired-token + .env pollution fixed) — 176 passed, 4 skipped.
 
 ## [v1.1.0] — 2026-09-05
 ### Added

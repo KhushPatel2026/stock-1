@@ -87,6 +87,15 @@ const PERIOD_OPTIONS = [
   { label: "MAX", value: "max" },
 ]
 
+// Short-duration presets — yfinance accepts any human-readable period
+const QUICK_PERIODS = [
+  { label: "1D", value: "1d" },
+  { label: "3D", value: "3d" },
+  { label: "1W", value: "5d" },
+  { label: "2W", value: "2wk" },
+  { label: "1M", value: "1mo" },
+]
+
 const PRESETS = [
   { id: "smart", name: "Smart Alpha Picks", icon: Sparkles, desc: "Top 5 ranked by OOS Sharpe", action: "recommend" },
   { id: "decide", name: "Consensus Portfolio", icon: CheckCircle2, desc: "Backtest today's top BUY picks", action: "decisions" },
@@ -829,6 +838,23 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
               {/* Period Selector Column */}
               <div className="lg:col-span-3 space-y-2.5">
                 <Label className="text-xs font-semibold text-foreground/90">Historical Backtest Horizon</Label>
+                <div className="flex gap-1">
+                  {QUICK_PERIODS.map(p => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => setPeriod(p.value)}
+                      title={`Last ${p.label}`}
+                      className={`flex-1 h-7 rounded-lg text-[11px] font-mono font-medium transition-all border ${
+                        period === p.value
+                          ? "bg-primary/15 text-primary border-primary/40 font-semibold"
+                          : "text-muted-foreground hover:text-foreground border-border/50"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 bg-muted/30 p-1 rounded-xl border border-border/70">
                   {PERIOD_OPTIONS.map(p => (
                     <button

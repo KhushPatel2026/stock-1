@@ -83,14 +83,14 @@ def covered_call_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_
     return trades, eq
 
 
-def backtest(data: dict, capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06, iv_override: float | None = None) -> tuple[list, pd.DataFrame]:
     """Strategy-library contract alias."""
-    return covered_call_backtest(data, capital=capital, otm=otm, dte=dte, r=r)
+    return covered_call_backtest(data, capital=capital, otm=otm, dte=dte, r=r, iv_override=iv_override)
 
 
 META = {
     "name": "Covered Call (BS)",
     "family": "Options",
-    "params": {"capital": 1_000_000, "otm": 0.05, "dte": 30, "r": 0.06},
+    "params": {"capital": 1_000_000, "otm": 0.05, "dte": 30, "r": 0.06, "iv_override": None},
     "description": "Black-Scholes 5% OTM 30-day covered call, premium harvest.",
 }

@@ -47,6 +47,7 @@ def test_hold_plan_band_and_short_history():
     assert p["stop_loss"] < p["entry"] < p["target"]
     assert p["above_sma200"] is None
     assert "wait" in p["insight"].lower()
+    assert "split 1 long vs 1 short" in p["insight"]
 
 
 def test_intraday_timeframe():
@@ -55,3 +56,15 @@ def test_intraday_timeframe():
                    {"intraday_orb": "Intraday"})
     assert p["timeframe"] == "Intraday"
     assert "3:20" in p["timeframe_detail"]
+
+
+def test_live_entry_override():
+    df = _df()
+    live = float(df["close"].iloc[-1]) * 1.02
+    p = build_plan("T.NS", df, "BUY", 70.0, [("donchian", 1.0)], [],
+                   {"donchian": "Trend"}, {"donchian": "Donchian"},
+                   entry=live, entry_label="10:30")
+    assert p["entry"] == round(live, 2)
+    assert p["live_entry"] is True
+    assert p["stop_loss"] < live < p["target"]
+    assert "(live)" in p["insight"]

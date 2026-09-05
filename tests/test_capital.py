@@ -47,6 +47,14 @@ def test_every_strategy_accepts_capital():
     assert not missing, f"strategies without capital param: {missing}"
 
 
+def test_no_duplicate_strategy_ids():
+    from collections import Counter
+    from src.registry import list_strategies
+    c = Counter(s["id"] for s in list_strategies())
+    dupes = {k: v for k, v in c.items() if v > 1}
+    assert not dupes, f"duplicate registrations (double votes): {dupes}"
+
+
 def test_every_strategy_starts_at_capital():
     data = _make_data()
     bad = []

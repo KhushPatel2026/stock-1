@@ -177,44 +177,25 @@ _reg("magic_formula_real", "src.magic_formula", "Factor", "Greenblatt with REAL 
 _reg("covered_call_real", "src.options_real", "Options", "Covered call using real option chains when available, BS fallback otherwise.", name_override="Covered Call (Real Chain)")
 
 # FEAT-008 — Intraday (4)
-
 _reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb", name_override="Opening Range Breakout")
 _reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap", name_override="VWAP Reversion")
 _reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom", name_override="Intraday Momentum")
 _reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight", name_override="Overnight Drift")
 
 # Cross-sectional factor strategies
-_reg("xs_momentum", "src.xsection", "Momentum", "12-1 month cross-sectional momentum (skip last month).", fn_name="backtest")
-_reg("st_reversal", "src.xsection", "MR", "Short-term reversal (5d return ranking).", fn_name="backtest_st")
-_reg("lt_reversal", "src.xsection", "MR", "Long-term reversal (5y return ranking).", fn_name="backtest_lt")
+_reg("xs_momentum", "src.xsection", "Momentum", "12-1 month cross-sectional momentum (skip last month).", fn_name="backtest", name_override="XS Momentum 12-1")
+_reg("st_reversal", "src.xsection", "MR", "Short-term reversal (5d return ranking).", fn_name="backtest_st", name_override="Short-Term Reversal")
+_reg("lt_reversal", "src.xsection", "MR", "Long-term reversal (5y return ranking).", fn_name="backtest_lt", name_override="Long-Term Reversal")
 
 # Factor variants
 _reg("bab", "src.bab", "Factor", "Betting Against Beta — long low-beta, short high-beta.")
-_reg("distance_pairs", "src.distance_pairs", "Stat-arb", "Distance method for pair trading.")
-_reg("vol_managed", "src.vol_managed", "Allocation", "Volatility-managed portfolio (Moreira-Muir).")
-_reg("chandelier", "src.chandelier", "Trend", "Chandelier exit — ATR-based trailing stop.")
+_reg("distance_pairs", "src.distance_pairs", "Stat-arb", "Distance method for pair trading.", name_override="Distance Pairs")
+_reg("vol_managed", "src.vol_managed", "Allocation", "Volatility-managed portfolio (Moreira-Muir).", name_override="Vol-Managed Overlay")
+_reg("chandelier", "src.chandelier", "Trend", "Chandelier exit — ATR-based trailing stop.", name_override="Chandelier Trend")
 
 # Seasonal
-_reg("turn_of_month", "src.seasonal", "Seasonal", "Buy last day of month, sell 3rd day.", fn_name="backtest")
-_reg("expiry_drift", "src.seasonal", "Seasonal", "Indian monthly expiry drift.", fn_name="backtest_expiry")
-
-# Intraday
-_reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb", name_override="Opening Range Breakout")
-_reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap", name_override="VWAP Reversion")
-_reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom", name_override="Intraday Momentum")
-_reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight", name_override="Overnight Drift")
-
-
-# FEAT-011 — Frontier batch (momentum/reversal/BAB/distance/vol-managed/chandelier/seasonal)
-_reg("xs_momentum", "src.xsection", "Momentum", "12-1 cross-sectional momentum long/short, monthly.")
-_reg("st_reversal", "src.xsection", "MR", "Fade past-1M return, monthly.", fn_name="backtest_st")
-_reg("lt_reversal", "src.xsection", "MR", "Fade past-2Y return, monthly.", fn_name="backtest_lt")
-_reg("bab", "src.bab", "Factor", "Betting-against-beta, legs scaled to beta 1.", name_override="Betting-Against-Beta")
-_reg("distance_pairs", "src.distance_pairs", "Stat-arb", "Gatev min-SSD pair, z-score traded.", name_override="Distance Pairs")
-_reg("vol_managed", "src.vol_managed", "Allocation", "Moreira-Muir 15% vol-target scaling.", name_override="Vol-Managed Overlay")
-_reg("chandelier", "src.chandelier", "Trend", "Donchian entry + ATR trailing-stop exit.", name_override="Chandelier Exit Trend")
-_reg("turn_of_month", "src.seasonal", "Seasonal", "Long last-1 + first-3 trading days of month.")
-_reg("expiry_drift", "src.seasonal", "Seasonal", "Long basket on Thursdays (NSE expiry).", fn_name="backtest_expiry", name_override="Expiry-Day Drift")
+_reg("turn_of_month", "src.seasonal", "Seasonal", "Buy last day of month, sell 3rd day.", fn_name="backtest", name_override="Turn-of-Month")
+_reg("expiry_drift", "src.seasonal", "Seasonal", "Indian monthly expiry drift.", fn_name="backtest_expiry", name_override="Expiry-Day Drift")
 
 # Institutional Global Alphas Batch
 _reg("fama_french", "src.fama_french", "Factor", "Fama-French 5-Factor + Momentum composite.", name_override="Fama-French 5-Factor + Mom")
@@ -315,6 +296,13 @@ def run_backtest(strategy_id: str, tickers: list[str], params: dict | None = Non
     # serialize
     eq_curve = [{"date": str(idx.date()), "equity": float(row["equity"])} for idx, row in eq.iterrows()]
     trades_out = [{k: (str(v) if hasattr(v, "date") else v) for k, v in t.items()} for t in trades[:500]]
+    # log this run for personalized insights (best-effort, never fail backtest on logging error)
+    try:
+        from .tracking import log_strategy_run
+        log_strategy_run(strategy_id, tickers, period, capital or 1_000_000, metrics)
+    except Exception:
+        pass
+
     return {
         "equity_curve": eq_curve,
         "metrics": metrics,

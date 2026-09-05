@@ -526,17 +526,86 @@ def _is_ai_available() -> bool:
 
 @app.post("/api/ai/explain-strategy")
 def ai_explain_strategy(req: AIExplainRequest) -> dict:
+    """Explain a strategy result, contextualized with the user's tickers + holdings."""
     from src.ai import explain_strategy
     from src.registry import get_strategy
+    from src.tracking import get_recent_runs
+    from src.portfolio import fetch_portfolio
     s = get_strategy(req.strategy_id) or {}
+    recent = get_recent_runs(5)
+    watchlist: list[str] = []
+    for r in recent:
+        for t in (r.get("tickers") or []):
+            if t not in watchlist:
+                watchlist.append(t)
+    holdings: list[dict] = []
+    try:
+        p = fetch_portfolio(_upstox_token)
+        if p.get("authenticated"):
+            holdings = p.get("holdings", []) or []
+    except Exception:
+        pass
+    context = {
+        "tickers": watchlist,
+        "recent_runs": recent,
+        "user_holdings": holdings,
+    }
     text = explain_strategy(
         req.strategy_id,
         s.get("name", req.strategy_id),
         s.get("family", "?"),
         req.metrics,
         req.user_question,
+        context=context,
     )
     return {"text": text, "ai_enabled": _is_ai_available()}
+
+
+class AIAnalyzeRequest(BaseModel):
+    tickers: list[str] = []
+    holdings: list[dict] = []
+    question: str = ""
+
+
+@app.post("/api/ai/analyze")
+def ai_analyze(req: AIAnalyzeRequest) -> dict:
+    """User-driven AI: enter tickers OR portfolio → get contextual advice.
+    This is the entry point the user actually wants.
+    """
+    from src.ai import _generate
+    if not _is_ai_available():
+        return {"text": "Gemini not configured. Add GEMINI_API_KEY to .env.", "ai_enabled": False}
+
+    parts: list[str] = []
+    if req.tickers:
+        parts.append(f"Tickers to analyze: {', '.join(req.tickers[:15])}")
+    if req.holdings:
+        parts.append("Portfolio holdings (user-entered):")
+        for h in req.holdings[:15]:
+            parts.append(
+                f"  - {h.get('ticker', '?')}: qty {h.get('quantity', '?')}, "
+                f"avg {h.get('avg_price', '?')}, current {h.get('current_price', '?')}"
+            )
+    if not parts:
+        return {"text": "Enter tickers or paste holdings to analyze.", "ai_enabled": False}
+
+    user_q = req.question or "What should I do with these? Give me BUY/SELL/HOLD for each ticker with reasoning."
+    prompt = (
+        "You are a quant analyst for a retail Indian trader. "
+        "Based on the user's input below, give concrete actionable advice.\n\n"
+        + "\n".join(parts) + "\n\n"
+        f"User question: {user_q}\n\n"
+        "Format:\n"
+        "- Per-ticker recommendation (BUY/SELL/HOLD) with one-line reasoning\n"
+        "- Suggested position size (% of capital) for each\n"
+        "- 1-2 risks to watch out for\n\n"
+        "Be specific and direct. No emojis. No disclaimers. Plain text."
+    )
+    try:
+        text = _generate(prompt)
+    except Exception as e:
+        text = f"AI error: {e}"
+    return {"text": text, "ai_enabled": True}
 
 
 @app.post("/api/ai/explain-portfolio")
@@ -548,11 +617,37 @@ def ai_explain_portfolio(req: AIPortfolioInsightRequest) -> dict:
 
 @app.get("/api/ai/personalized")
 def ai_personalized() -> dict:
+    """Generate personalized insights from REAL user context:
+    Upstox holdings + watchlist + recent backtest runs."""
     from src.tracking import get_most_used_strategies, get_recent_runs
     from src.ai import personalized_insight
+    from src.portfolio import fetch_portfolio
+    from src.data import fetch_many
+
+    holdings = []
+    portfolio_summary = {}
+    try:
+        p = fetch_portfolio(_upstox_token)
+        if p.get("authenticated"):
+            holdings = p.get("holdings", [])
+            portfolio_summary = p.get("summary", {})
+    except Exception:
+        pass
+
+    # watchlist = last tickers the user ran backtests on
+    recent_runs = get_recent_runs(10)
+    watchlist: list[str] = []
+    for r in recent_runs:
+        for t in (r.get("tickers") or []):
+            if t not in watchlist:
+                watchlist.append(t)
+
     stats = {
+        "watchlist": watchlist[:15],
+        "user_holdings": holdings[:10],
+        "portfolio_summary": portfolio_summary,
         "most_used": [s["strategy_id"] for s in get_most_used_strategies()],
-        "recent_runs": get_recent_runs(5),
+        "recent_runs": recent_runs,
     }
     text = personalized_insight(stats)
     return {"text": text, "ai_enabled": _is_ai_available(), "stats": stats}
