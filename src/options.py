@@ -78,3 +78,16 @@ def covered_call_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_
         equity_curve.append({"date": d, "equity": float(val)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+def backtest(data: dict, capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06) -> tuple[list, pd.DataFrame]:
+    """Strategy-library contract alias."""
+    return covered_call_backtest(data, capital=capital, otm=otm, dte=dte, r=r)
+
+
+META = {
+    "name": "Covered Call (BS)",
+    "family": "Options",
+    "params": {"capital": 1_000_000, "otm": 0.05, "dte": 30, "r": 0.06},
+    "description": "Black-Scholes 5% OTM 30-day covered call, premium harvest.",
+}

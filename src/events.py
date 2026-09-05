@@ -118,3 +118,28 @@ def rebalance_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000
         eq_curve.append({"date":d,"equity":float(val)})
     eq=pd.DataFrame(eq_curve).set_index("date") if eq_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+def backtest(data: dict, capital: float = 1_000_000, window: int = 5, hold: int = 10) -> tuple[list, pd.DataFrame]:
+    """Strategy-library contract alias: earnings drift."""
+    return earnings_backtest(data, capital=capital, window=window, hold=hold)
+
+
+def backtest_rebalance(data: dict, capital: float = 1_000_000, hold: int = 10) -> tuple[list, pd.DataFrame]:
+    """Strategy-library contract alias: rebalance drift."""
+    return rebalance_backtest(data, capital=capital, hold=hold)
+
+
+META = {
+    "name": "Earnings Drift",
+    "family": "Event",
+    "params": {"capital": 1_000_000, "window": 5, "hold": 10},
+    "description": "Buy earnings spike (proxy: 3σ return spike) ±5d, hold 10d.",
+}
+
+META_REBALANCE = {
+    "name": "Index Rebalance Drift",
+    "family": "Event",
+    "params": {"capital": 1_000_000, "hold": 10},
+    "description": "Quarterly index rebalance ±10d mean-reversion.",
+}

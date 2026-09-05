@@ -101,3 +101,17 @@ def run(data: dict[str, pd.DataFrame], capital: float = 1_000_000, max_positions
     if equity_curve and trades:
         metrics["exposure"] = len([e for e in equity_curve if e["equity"] != capital]) / len(equity_curve)
     return trades, eq_df, metrics
+
+
+def backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000, max_positions: int = 5, risk_pct: float = 0.01) -> tuple[list, pd.DataFrame]:
+    """Strategy-library contract wrapper: returns (trades, equity_df)."""
+    trades, eq, _ = run(data, capital=capital, max_positions=max_positions, risk_pct=risk_pct)
+    return trades, eq
+
+
+META = {
+    "name": "Trend-Following (SMA+ADX)",
+    "family": "Trend",
+    "params": {"capital": 1_000_000, "max_positions": 5, "risk_pct": 0.01},
+    "description": "Long-only trend: close>SMA200 filter, SMA20>SMA50 cross, ADX>20, 1% vol sizing, ATR SL/TP.",
+}

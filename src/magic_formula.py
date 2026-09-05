@@ -66,3 +66,11 @@ def backtest(data: dict, top_decile=0.2, cost=0.001) -> tuple[list, pd.DataFrame
         eq_curve.append({"date": d, "equity": float(val)})
     eq = pd.DataFrame(eq_curve).set_index("date") if eq_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Magic Formula (Greenblatt)",
+    "family": "Factor",
+    "params": {"top_n": 5, "cost": 0.001},
+    "description": "EY+ROE composite z-score (price-proxied, see ADR-005).",
+}

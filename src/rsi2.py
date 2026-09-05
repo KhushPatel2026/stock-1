@@ -47,3 +47,11 @@ def backtest(data: dict, rsi_thresh=5, exit_ma=5, max_n=5, cost=0.0005) -> tuple
         eq_curve.append({"date": d, "equity": float(val)})
     eq = pd.DataFrame(eq_curve).set_index("date") if eq_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "RSI(2) Connors Reversal",
+    "family": "MR",
+    "params": {"top_n": 5, "cost": 0.001},
+    "description": "Connors short-horizon reversal, exit on 5d SMA cross.",
+}

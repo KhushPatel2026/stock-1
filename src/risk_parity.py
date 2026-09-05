@@ -69,3 +69,11 @@ def backtest(data: dict, lookback=60, top_n=10, cost_bps=1) -> tuple[list, pd.Da
         eq_curve.append({"date": d, "equity": float(val)})
     eq = pd.DataFrame(eq_curve).set_index("date") if eq_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Risk Parity (Inverse Vol)",
+    "family": "Allocation",
+    "params": {"top_n": 5, "cost": 0.001},
+    "description": "Inverse-vol weighting, daily rebalance.",
+}

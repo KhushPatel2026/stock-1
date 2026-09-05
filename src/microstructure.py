@@ -45,3 +45,11 @@ def backtest(data: dict[str, pd.DataFrame], vol_mult: float = 2.0) -> tuple[list
         equity_curve.append({"date":d,"equity":float(val)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Microstructure (Vol Spike)",
+    "family": "Volume",
+    "params": {"vol_mult": 2.0},
+    "description": "Volume >2x 20d avg + close near high → next-day continuation (daily proxy).",
+}

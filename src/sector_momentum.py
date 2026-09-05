@@ -65,3 +65,11 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 1) -> tuple[list[dict],
         equity_curve.append({"date":d,"equity":float(val)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Sector-Neutral Momentum",
+    "family": "Cross-sect",
+    "params": {"top_n": 1},
+    "description": "Within-sector cross-sectional momentum long/short, monthly.",
+}

@@ -5,7 +5,7 @@ Name: stock-1 — Nifty 50 Trend-Following Systematic Strategy
 Repo: stock-1 (local, not yet pushed to standalone remote — parent is Khush/Softwares)
 Tech Stack: Python 3.11+, pandas, numpy, yfinance, pytest
 Started: 2026-08-27
-Current Version: v0.5.0 (FEAT-005 Quant Classics — RELEASED)
+Current Version: v0.6.0 (FEAT-006 50-Strategy Library + Frontend — RELEASED)
 Repo: https://github.com/KhushPatel2026/stock-1
 
 ## Milestones
@@ -36,10 +36,10 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | P1 | Spec & Clarify | ✅ (FEAT-001/002/003/004 PRDs) |
 | P2 | Plan & Task Breakdown | ✅ |
 | P3 | API & Interface Design | ✅ (indicators, signals, portfolio, pairs, institutional, advanced-quant) |
-| P4 | Build — TDD Loop | ✅ (44 tests pass — 16+7+7+8+6) |
+| P4 | Build — TDD Loop | ✅ (77 tests pass — 16+7+7+8+6+33) |
 | P5 | Verify | ✅ |
 | P6 | Multi-Agent Review | ✅ (ponytail + logic review, all FEATs) |
-| P7 | QA — All Test Types | ✅ — FEAT-001/002/003/004/005 all PASS |
+| P7 | QA — All Test Types | ✅ — FEAT-001/002/003/004/005/006 all PASS |
 | P8 | PR → dev | ✅ (dev branch pushed) |
 | P9 | PR → staging | ✅ (staging branch pushed) |
 | P10 | PR → main + Release | ✅ (tagged v0.4.0 on main, release notes in docs/releases/v0.4.0.md) |
@@ -54,6 +54,7 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | FEAT-003 | Institutional Suite (Factors/Options/Event/Risk/Walk-Forward) | Done (P7) — RELEASED v0.3.0 | 5 | — | v0.3.0 |
 | FEAT-004 | Advanced Quant (Gap-Fade/Sector-Neutral/Microstructure/Beta-Hedge/ML) | Done (P7) — RELEASED v0.4.0 | 5 | — | v0.4.0 |
 | FEAT-005 | Quant Classics (Bollinger/RSI2/Dual Mom/Magic Formula/Risk Parity/Div Carry) | Done (P7) — RELEASED v0.5.0 | 6 | — | v0.5.0 |
+| FEAT-006 | 50-Strategy Library + Frontend (React+shadcn+tailwind+FastAPI) | Done (P7) — RELEASED v0.6.0 | 32 | — | v0.6.0 |
 
 ## Sub-Issue Registry
 | SUB-ID | Parent FEAT | Name | Phase | Branch | GH Issue | Status |

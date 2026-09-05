@@ -76,3 +76,11 @@ def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int
         equity_curve.append({"date":d,"equity":float(val)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Gap-Fade Mean Reversion",
+    "family": "MR",
+    "params": {"thresh": 1.5},
+    "description": "Open vs prev close gap > N sigma, fade intraday mean-reversion.",
+}

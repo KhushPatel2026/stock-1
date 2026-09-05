@@ -85,3 +85,11 @@ def backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000, top_n: i
         equity_curve.append({"date": d, "equity": float(val)})
     eq = pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Multi-Factor Composite",
+    "family": "Factor",
+    "params": {"capital": 1_000_000, "top_n": 5},
+    "description": "Composite of momentum / value / quality / low-vol z-scores, top decile monthly.",
+}

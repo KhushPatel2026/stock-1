@@ -149,3 +149,11 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 3) -> tuple[list[dict],
         equity_curve.append({"date":d,"equity":float(val)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "ML Overlay (HistGradientBoosting)",
+    "family": "ML",
+    "params": {"top_n": 3},
+    "description": "HistGradientBoosting on factors, walk-forward CV, long top-N probabilities.",
+}

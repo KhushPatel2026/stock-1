@@ -54,3 +54,11 @@ def backtest(data: dict, lookback=252, top_n=5, cost=0.001) -> tuple[list, pd.Da
         eq_curve.append({"date": d, "equity": float(val)})
     eq = pd.DataFrame(eq_curve).set_index("date") if eq_curve else pd.DataFrame(columns=["equity"])
     return trades, eq
+
+
+META = {
+    "name": "Dual Momentum (Antonacci)",
+    "family": "Momentum",
+    "params": {"top_n": 5, "cost": 0.001},
+    "description": "12M absolute gate + relative cross-section rank.",
+}

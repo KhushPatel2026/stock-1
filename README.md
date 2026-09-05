@@ -87,7 +87,33 @@ python3 -c "from src.dividend_carry import backtest; print(backtest(d)[1].tail()
 - **Risk Parity:** `src/risk_parity.py` — inverse-vol weighting, monthly selection + daily rebalance
 - **Dividend Carry:** `src/dividend_carry.py` — top-quartile yield, monthly rebalance (static yield map)
 
-**Total now: 12 strategy families, 44 tests pass.**
+**Total now: 50 strategies across 16 families, 77 tests pass.**
+
+## Web Frontend
+
+The repo ships with a React + shadcn/ui + Tailwind frontend that calls all 50 strategies through a FastAPI backend. Pick tickers, pick a strategy, hit Run.
+
+```bash
+# Backend
+pip install -r requirements-api.txt
+python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+# Frontend
+cd frontend && npm install && npm run dev
+# → http://localhost:5173
+```
+
+See [`frontend/README.md`](frontend/README.md) for details. The proxy in `vite.config.ts` forwards `/api/*` to the backend, so the same CORS-free setup works in dev and prod.
+
+## API surface (when not using the UI)
+
+```bash
+curl http://127.0.0.1:8000/api/strategies                        # list all 50
+curl http://127.0.0.1:8000/api/families                          # family counts
+curl -X POST http://127.0.0.1:8000/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{"strategy_id":"bollinger","tickers":["RELIANCE.NS","TCS.NS"],"period":"2y","params":{"top_n":5}}'
+```
 
 ## Ponytail notes
 - No abstract Strategy class, no plugin system — straight functions until second strategy exists.

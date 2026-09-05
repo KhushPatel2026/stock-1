@@ -72,3 +72,17 @@ def backtest(data: dict[str, pd.DataFrame], stock: str = None, nifty_proxy: pd.S
         equity_curve.append({"date":d,"equity":float(equity)})
     eq=pd.DataFrame(equity_curve).set_index("date") if equity_curve else pd.DataFrame(columns=["equity"])
     return trades, eq, beta
+
+
+def backtest_returns_only(data: dict, stock: str = "RELIANCE.NS", **kwargs) -> tuple[list, pd.DataFrame]:
+    """Strategy-library contract: drop the beta series from the tuple."""
+    trades, eq, _ = backtest(data, stock=stock, **kwargs)
+    return trades, eq
+
+
+META = {
+    "name": "Beta-Hedged Single Stock",
+    "family": "Hedge",
+    "params": {"stock": "RELIANCE.NS"},
+    "description": "Long stock + short beta × Nifty (synthetic equal-weight proxy).",
+}
