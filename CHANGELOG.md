@@ -26,6 +26,15 @@
 - Tests: `test_data_verify.py` (ticker-mismatch rejection, cache scoping, scraper fallbacks),
   live-entry + HOLD-split assertions in `test_trade_plan.py`; upstox suite hermetic
   (expired-token + .env pollution fixed) — 176 passed, 4 skipped.
+### Added — market weather in Trade Idea (news + global + sector + commodity)
+- `src/market_context.py` (all free, no keys): Nifty regime (trend/200DMA/VIX state),
+  global snapshot (S&P 500, Nasdaq, US 10Y, USDINR, Brent, Gold, Copper, Silver),
+  sector day-change + 1M vs Nifty, linked-commodity line (e.g. Brent for Reliance),
+  headlines via Google News India RSS with keyword tone (yfinance fallback).
+- `GET /api/context?ticker=X` (20-min cache). Trade Idea tab shows a market-weather
+  card: summary line, chips, amber cautions (VIX fear, Nifty downtrend, weak US open,
+  negative news skew), clickable headlines. Votes untouched — context informs, never
+  silently changes the verdict.
 
 ## [v1.1.0] — 2026-09-05
 ### Added

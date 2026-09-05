@@ -22,6 +22,7 @@ from src.paper import PaperBroker
 from src.paper_engine import run_rebalance, daily_report, get_latest_prices
 from src.signals import compute_signals
 from src.upstox import UpstoxClient
+from src.macro import fetch_all as fetch_macro_all, regime_summary as macro_regime, news_for_ticker
 
 app = FastAPI(title="stock-1 API", version="1.0.0")
 
@@ -163,14 +164,16 @@ def _oos_weights(strategy_ids: list[str], tickers: list[str], data: dict | None 
 
 @app.post("/api/decisions")
 def decisions(req: DecisionsRequest) -> dict:
-    """Per-ticker consensus: BUY / SELL / HOLD + entry/SL/target/timeframe/insight."""
+    """Per-ticker consensus: vote score + macro overlay -> BUY/SELL/HOLD + trade plan."""
     if not req.tickers:
         raise HTTPException(400, "tickers required")
     if len(req.tickers) > 25:
         raise HTTPException(400, "max 25 tickers")
     from src.signals import compute_signals_for_tickers
     from src.data import fetch_many, fetch, live_price
+    from src.indicators import atr as atr_fn
     from src.trade_plan import build_plan
+    from src.market_context import get_context, macro_overlay
 
     items = list_strategies()
     families = {s["id"]: s["family"] for s in items}
@@ -213,33 +216,58 @@ def decisions(req: DecisionsRequest) -> dict:
         long_pct = round(long_w / total_w * 100, 1)
         short_pct = round(short_w / total_w * 100, 1)
 
-        # Decision: weighted score with strategy count support
+        # Base vote score + macro overlay -> final score. Same thresholds, full transparency.
         n_total = n_long + n_short + n_flat
         long_ratio = n_long / max(n_total, 1)
         short_ratio = n_short / max(n_total, 1)
-        score = long_pct - short_pct
+        base_score = long_pct - short_pct
+        df = ohlc.get(ticker)
+        try:
+            a = float(atr_fn(df, 14).iloc[-1]) if df is not None and not df.empty and len(df) >= 20 else None
+            c = float(df["close"].iloc[-1]) if df is not None and not df.empty else None
+            atr_pct = round(a / c * 100, 2) if a and c else None
+        except Exception:
+            atr_pct = None
+        try:
+            ctx = get_context(ticker)
+            ov = macro_overlay(ticker, ctx, atr_pct)
+        except Exception:
+            ctx = {}
+            ov = {"score": 0, "reasons": [], "sizing_pct": 1.0,
+                  "sizing_note": "normal size (1% risk)", "capped": False}
+        score = round(base_score + ov["score"], 1)
 
         # BUY: ≥25% strategies say long AND score ≥ 10
         if long_ratio >= 0.25 and score >= 10:
             decision = "BUY"
             confidence = min(long_ratio * 120 + score * 0.8, 99)
+            if ov["score"] < 0:  # macro headwind against the vote -> cap
+                confidence = min(confidence, 65)
+                ov["capped"] = True
         # SELL: ≥15% say short AND score ≤ -5
         elif short_ratio >= 0.15 and score <= -5:
             decision = "SELL"
             confidence = min(short_ratio * 120 + (-score) * 0.8, 99)
+            if ov["score"] > 0:  # macro tailwind against the short -> cap
+                confidence = min(confidence, 65)
+                ov["capped"] = True
         else:
             decision = "HOLD"
             confidence = round(100 - abs(score) * 2, 1)
+        if (ctx.get("market", {}) or {}).get("vix_state") == "fear" and decision in ("BUY", "SELL"):
+            confidence = min(confidence, 60)
+            ov["capped"] = True
 
         long_strats.sort(key=lambda x: -x[1])
         short_strats.sort(key=lambda x: -x[1])
-        df = ohlc.get(ticker)
+        macro_line = f"Macro {ov['score']:+.0f}: " + "; ".join(ov["reasons"][:3]) + "." if ov["reasons"] else ""
         if df is not None and not df.empty:
             try:
                 lp, lp_label, lp_live = live.get(ticker, (None, "", False))
                 plan = build_plan(ticker, df, decision, confidence,
                                   long_strats, short_strats, families, names,
-                                  entry=lp, entry_label=lp_label if lp_live else "")
+                                  entry=lp, entry_label=lp_label if lp_live else "",
+                                  macro_line=macro_line)
             except Exception:
                 plan = None
         else:
@@ -251,6 +279,14 @@ def decisions(req: DecisionsRequest) -> dict:
             "long_pct": long_pct,
             "short_pct": short_pct,
             "score": round(score, 1),
+            "base_score": round(base_score, 1),
+            "macro": {
+                "score": ov["score"],
+                "reasons": ov["reasons"],
+                "sizing_pct": ov["sizing_pct"],
+                "sizing_note": ov["sizing_note"],
+                "capped": ov["capped"],
+            },
             "long_strategies": [s for s, _ in long_strats[:5]],
             "short_strategies": [s for s, _ in short_strats[:5]],
             "n_long": n_long,
@@ -338,6 +374,26 @@ def signals(tickers: list[str] | None = None) -> dict:
     return compute_signals(tickers)
 
 
+_CONTEXT_CACHE: dict[str, tuple[float, dict]] = {}
+_CONTEXT_TTL_S = 20 * 60
+
+
+@app.get("/api/context")
+def context(ticker: str) -> dict:
+    """Market weather for one ticker: regime, global, sector, commodity, news, cautions."""
+    import time
+    from src.market_context import get_context
+    t = (ticker or "").strip().upper()
+    if not t:
+        raise HTTPException(400, "ticker required")
+    hit = _CONTEXT_CACHE.get(t)
+    if hit and time.time() - hit[0] < _CONTEXT_TTL_S:
+        return hit[1]
+    ctx = get_context(t)
+    _CONTEXT_CACHE[t] = (time.time(), ctx)
+    return ctx
+
+
 # ---------------------------------------------------------------------------
 # FEAT-XXX — Upstox OAuth token + portfolio + analytics endpoints
 # ---------------------------------------------------------------------------
@@ -418,6 +474,26 @@ def upstox_pcr(symbol: str) -> dict:
         return client.get_pcr(symbol)
     except Exception as e:
         raise HTTPException(500, f"upstox pcr failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Macro context — sectors, global, commodities, FX, VIX, news
+# ---------------------------------------------------------------------------
+
+@app.get("/api/macro")
+def macro_overview() -> dict:
+    """Fetch all macro context: Nifty sector indices, global indices,
+    commodities, FX, VIX + regime classification."""
+    data = fetch_macro_all()
+    regime = macro_regime(data)
+    return {**data, "regime": regime}
+
+
+@app.get("/api/macro/news/{ticker}")
+def macro_news(ticker: str, limit: int = 5) -> dict:
+    """Recent news headlines for a ticker via yfinance."""
+    items = news_for_ticker(ticker, limit=limit)
+    return {"ticker": ticker, "news": items}
 
 
 @app.get("/api/upstox/server-info")
@@ -586,19 +662,43 @@ def ai_analyze(req: AIAnalyzeRequest) -> dict:
                 f"  - {h.get('ticker', '?')}: qty {h.get('quantity', '?')}, "
                 f"avg {h.get('avg_price', '?')}, current {h.get('current_price', '?')}"
             )
+
+    # Macro context
+    macro_ctx = ""
+    try:
+        m = fetch_macro_all()
+        regime = macro_regime(m)
+        sector_lines = []
+        for s in m.get("sectors", [])[:8]:
+            sector_lines.append(f"  {s.get('name','?').replace('Nifty ','')}: {s.get('chg_20d_pct',0):+.1f}% 20d ({s.get('trend','?')})")
+        global_lines = []
+        for s in m.get("global", [])[:5]:
+            global_lines.append(f"  {s.get('name','?')}: {s.get('chg_20d_pct',0):+.1f}% 20d")
+        commod_lines = []
+        for s in m.get("commodities", [])[:4]:
+            commod_lines.append(f"  {s.get('name','?')}: {s.get('chg_20d_pct',0):+.1f}% 20d")
+        macro_ctx = (
+            f"\nMACRO REGIME: {regime.get('summary')}\n"
+            f"\nSectors (20d):\n" + "\n".join(sector_lines) +
+            f"\nGlobal (20d):\n" + "\n".join(global_lines) +
+            f"\nCommodities (20d):\n" + "\n".join(commod_lines) + "\n"
+        )
+    except Exception:
+        macro_ctx = "\n(Macro data unavailable)\n"
+
     if not parts:
         return {"text": "Enter tickers or paste holdings to analyze.", "ai_enabled": False}
 
     user_q = req.question or "What should I do with these? Give me BUY/SELL/HOLD for each ticker with reasoning."
     prompt = (
         "You are a quant analyst for a retail Indian trader. "
-        "Based on the user's input below, give concrete actionable advice.\n\n"
-        + "\n".join(parts) + "\n\n"
+        "Give concrete actionable advice considering the user's input AND current macro context.\n\n"
+        + "\n".join(parts) + macro_ctx + "\n"
         f"User question: {user_q}\n\n"
         "Format:\n"
         "- Per-ticker recommendation (BUY/SELL/HOLD) with one-line reasoning\n"
         "- Suggested position size (% of capital) for each\n"
-        "- 1-2 risks to watch out for\n\n"
+        "- 1-2 macro/sector risks to watch\n\n"
         "Be specific and direct. No emojis. No disclaimers. Plain text."
     )
     try:

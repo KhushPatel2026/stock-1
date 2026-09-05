@@ -52,10 +52,12 @@ def build_plan(
     names: dict[str, str] | None = None,
     entry: float | None = None,
     entry_label: str = "",
+    macro_line: str = "",
 ) -> dict:
     """Build the full trade card for one ticker. Never raises on thin data.
 
     `entry`: live price override. Levels/SL/TP anchor to it; ATR/SMA stay on daily bars.
+    `macro_line`: pre-formatted macro sentence, inserted into the insight.
     """
     families = families or {}
     names = names or {}
@@ -111,6 +113,7 @@ def build_plan(
     insight = (
         f"{vote_bit}{lead_bit}. "
         f"{ticker} {price_bit} ({day_chg:+.1f}% vs prev close){sma_bit}, 14d ATR ₹{a:,.2f} ({a / price * 100:.1f}%). "
+        f"{macro_line + ' ' if macro_line else ''}"
         f"{action} {tf} holding ({tf_detail.lower()})."
     )
     return {

@@ -104,19 +104,29 @@ export interface TradePlan {
   entry_label: string
 }
 
+export interface MacroOverlay {
+  score: number
+  reasons: string[]
+  sizing_pct: number
+  sizing_note: string
+  capped: boolean
+}
+
 export interface Decision {
   ticker: string
-  decision: string
+  decision: "BUY" | "SELL" | "HOLD"
   confidence: number
   long_pct: number
   short_pct: number
   score: number
+  base_score: number
+  macro: MacroOverlay
   long_strategies: string[]
   short_strategies: string[]
   n_long: number
   n_short: number
   n_flat: number
-  plan?: TradePlan
+  plan: TradePlan | null
 }
 
 export async function fetchDecisions(tickers: string[], period: string = "3mo"): Promise<{
@@ -306,6 +316,53 @@ export async function fetchAIStatus(): Promise<{ available: boolean }> {
   return r.json()
 }
 
+export interface MacroItem {
+  name: string
+  symbol: string
+  last: number
+  chg_1d_pct: number
+  chg_5d_pct: number
+  chg_20d_pct: number
+  trend: "up" | "down" | "sideways"
+  as_of: string
+}
+
+export interface MacroRegime {
+  india_regime: string
+  global_regime: string
+  commodities_bias: string
+  risk_on_off: string
+  vix: number
+  nifty_20d: number
+  sp500_20d: number
+  strongest_sectors: string[]
+  weakest_sectors: string[]
+  summary: string
+}
+
+export interface MacroData {
+  as_of: string
+  sectors: MacroItem[]
+  global: MacroItem[]
+  commodities: MacroItem[]
+  fx: MacroItem[]
+  volatility: MacroItem[]
+  nifty50: MacroItem
+  regime: MacroRegime
+}
+
+export async function fetchMacro(): Promise<MacroData> {
+  const r = await fetch(`${API}/api/macro`)
+  if (!r.ok) throw new Error("failed to fetch macro")
+  return r.json()
+}
+
+export async function fetchTickerNews(ticker: string, limit = 5): Promise<{ ticker: string; news: any[] }> {
+  const r = await fetch(`${API}/api/macro/news/${encodeURIComponent(ticker)}?limit=${limit}`)
+  if (!r.ok) return { ticker, news: [] }
+  return r.json()
+}
+
 export async function aiExplainStrategy(strategy_id: string, metrics: any, user_question = ""): Promise<{ text: string; ai_enabled: boolean }> {
   const r = await fetch(`${API}/api/ai/explain-strategy`, {
     method: "POST",
@@ -318,6 +375,40 @@ export async function aiExplainStrategy(strategy_id: string, metrics: any, user_
 
 export async function aiPersonalized(): Promise<{ text: string; ai_enabled: boolean; stats: any }> {
   const r = await fetch(`${API}/api/ai/personalized`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export interface NewsItem {
+  title: string
+  source: string
+  time: string
+  link: string
+  tone: "positive" | "negative" | "neutral"
+}
+
+export interface MarketContext {
+  ticker: string
+  as_of: string
+  market: {
+    nifty?: number
+    nifty_day_pct?: number
+    nifty_trend?: string
+    nifty_month_pct?: number
+    vix?: number
+    vix_state?: string
+    as_of?: string
+  }
+  global: Record<string, { price?: number; day_pct?: number; as_of?: string }>
+  sector: { name?: string; day_pct?: number; month_vs_nifty?: number }
+  commodity: { name?: string; price?: number; day_pct?: number }
+  news: { items: NewsItem[]; source: string }
+  cautions: string[]
+  summary: string
+}
+
+export async function fetchContext(ticker: string): Promise<MarketContext> {
+  const r = await fetch(`${API}/api/context?ticker=${encodeURIComponent(ticker)}`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }

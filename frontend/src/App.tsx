@@ -16,6 +16,8 @@ import {
   Database,
   Wallet,
   Brain,
+  Globe,
+  Compass,
 } from "lucide-react"
 import BacktestPanel from "@/BacktestPanel"
 import StrategyLibrary from "@/StrategyLibrary"
@@ -24,6 +26,8 @@ import PaperPanel from "@/PaperPanel"
 import ReportsPanel from "@/ReportsPanel"
 import Portfolio from "@/Portfolio"
 import AIInsights from "@/AIInsights"
+import TradeIdea from "@/TradeIdea"
+import MacroPanel from "@/MacroPanel"
 import Callback from "@/Callback"
 import { ThemeToggle } from "@/components/ThemeToggle"
 
@@ -33,7 +37,7 @@ export default function App() {
     return <Callback />
   }
 
-  const [activeTab, setActiveTab] = useState("backtest")
+  const [activeTab, setActiveTab] = useState("idea")
   const [targetStrategy, setTargetStrategy] = useState<string | null>(null)
   const [targetTicker, setTargetTicker] = useState<string | null>(null)
   const [paperOrderPrefill, setPaperOrderPrefill] = useState<{ ticker: string; side: "buy" | "sell" } | null>(null)
@@ -173,6 +177,13 @@ export default function App() {
           <div className="flex items-center justify-between overflow-x-auto pb-1 border-b border-border/60">
             <TabsList className="bg-muted/40 p-1 rounded-xl border border-border/60 h-auto gap-1">
               <TabsTrigger
+                value="idea"
+                className="gap-2 px-3.5 py-2 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              >
+                <Compass className="h-3.5 w-3.5 text-primary" />
+                Trade Idea
+              </TabsTrigger>
+              <TabsTrigger
                 value="backtest"
                 className="gap-2 px-3.5 py-2 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
               >
@@ -192,6 +203,13 @@ export default function App() {
               >
                 <Brain className="h-3.5 w-3.5 text-purple-600" />
                 AI Insights
+              </TabsTrigger>
+              <TabsTrigger
+                value="macro"
+                className="gap-2 px-3.5 py-2 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
+              >
+                <Globe className="h-3.5 w-3.5 text-cyan-600" />
+                Macro
               </TabsTrigger>
               <TabsTrigger
                 value="signals"
@@ -235,6 +253,10 @@ export default function App() {
           </div>
 
           {/* TAB CONTENTS */}
+          <TabsContent value="idea" className="focus-visible:outline-none focus-visible:ring-0 mt-0">
+            <TradeIdea onTrade={handleLaunchPaperOrder} />
+          </TabsContent>
+
           <TabsContent value="backtest" className="focus-visible:outline-none focus-visible:ring-0 mt-0">
             <BacktestPanel
               targetStrategy={targetStrategy}
@@ -272,6 +294,10 @@ export default function App() {
 
           <TabsContent value="ai" className="focus-visible:outline-none focus-visible:ring-0 mt-0">
             <AIInsights />
+          </TabsContent>
+
+          <TabsContent value="macro" className="focus-visible:outline-none focus-visible:ring-0 mt-0">
+            <MacroPanel />
           </TabsContent>
 
           <TabsContent value="library" className="focus-visible:outline-none focus-visible:ring-0 mt-0">
