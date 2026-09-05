@@ -5,7 +5,8 @@ Name: stock-1 — Nifty 50 Trend-Following Systematic Strategy
 Repo: stock-1 (local, not yet pushed to standalone remote — parent is Khush/Softwares)
 Tech Stack: Python 3.11+, pandas, numpy, yfinance, pytest
 Started: 2026-08-27
-Current Version: v0.4.0 (FEAT-001+002+003+004 MVP — pending release)
+Current Version: v0.4.0 (FEAT-001+002+003+004 MVP — RELEASED)
+Repo: https://github.com/KhushPatel2026/stock-1
 
 ## Milestones
 | Milestone | Description | Target Date | Status |
@@ -38,11 +39,11 @@ Current Version: v0.4.0 (FEAT-001+002+003+004 MVP — pending release)
 | P5 | Verify | ✅ |
 | P6 | Multi-Agent Review | ✅ (ponytail + logic review, all FEATs) |
 | P7 | QA — All Test Types | ✅ — FEAT-001 PASS, FEAT-002 PASS, FEAT-003 PASS, FEAT-004 PASS |
-| P8 | PR → dev | Pending (no remote for stock-1) |
-| P9 | PR → staging | Pending |
-| P10 | PR → main + Release | Pending |
+| P8 | PR → dev | ✅ (dev branch pushed) |
+| P9 | PR → staging | ✅ (staging branch pushed) |
+| P10 | PR → main + Release | ✅ (tagged v0.4.0 on main, release notes in docs/releases/v0.4.0.md) |
 | P11 | Docs & ADRs | ✅ (ADR-001/002/003/004, READMEs, CHANGELOG v0.4.0) |
-| P12 | Ship & Observability | Pending (local CLIs ready: all suites) |
+| P12 | Ship & Observability | ✅ (runbook in docs/runbooks/strategies.md, release notes in docs/releases/v0.4.0.md) |
 
 ## Feature Registry
 | FEAT-ID | Name | Status | SUBs | GH Issue | Version |
@@ -135,5 +136,7 @@ Current Version: v0.4.0 (FEAT-001+002+003+004 MVP — pending release)
 | ADR-002 | docs/adr/ADR-002-engle-granger-vs-johansen.md | FEAT-002 | 2026-08-27 |
 | ADR-003 | docs/adr/ADR-003-institutional-suite.md | FEAT-003 | 2026-08-27 |
 | ADR-004 | docs/adr/ADR-004-advanced-quant.md | FEAT-004 | 2026-08-27 |
+| Runbook | docs/runbooks/strategies.md | all | 2026-08-27 |
+| Release notes | docs/releases/v0.4.0.md | all | 2026-08-27 |
 | README | README.md | — | 2026-08-27 |
 | CHANGELOG | CHANGELOG.md | — | 2026-08-27 |
