@@ -5,15 +5,15 @@ Name: stock-1 — Nifty 50 Trend-Following Systematic Strategy
 Repo: stock-1 (local, not yet pushed to standalone remote — parent is Khush/Softwares)
 Tech Stack: Python 3.11+, pandas, numpy, yfinance, pytest
 Started: 2026-08-27
-Current Version: v0.6.0 (FEAT-006 50-Strategy Library + Frontend — RELEASED)
+Current Version: v1.0.0 (FEAT-007/008/009/010 Validation+Intraday+Paper+Signals — RELEASED)
 Repo: https://github.com/KhushPatel2026/stock-1
 
 ## Milestones
 | Milestone | Description | Target Date | Status |
 |---|---|---|---|
-| MVP | Working backtest: data→indicators→signals→risk sizing→portfolio→metrics on real Nifty50 data | 2026-09-10 | In Progress |
-| v1.0.0 | Walk-forward + regime tests (2018/2020/2022), transaction costs, paper-trading ready | 2026-09-20 | Planned |
-| Backlog | Live trading adapter, dashboard, multi-timeframe | — | Open |
+| MVP | Working backtest: data→indicators→signals→risk sizing→portfolio→metrics on real Nifty50 data | 2026-09-10 | Done |
+| v1.0.0 | Walk-forward + regime tests (2018/2020/2022), transaction costs, paper-trading ready | 2026-09-20 | Done |
+| Backlog | Live trading adapter (Zerodha), real options chains, M&A event feed, short interest | — | Open |
 
 ## Active Work
 | ID | Type | Name | Parent | Phase | Branch | GH Issue |
@@ -36,10 +36,10 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | P1 | Spec & Clarify | ✅ (FEAT-001/002/003/004 PRDs) |
 | P2 | Plan & Task Breakdown | ✅ |
 | P3 | API & Interface Design | ✅ (indicators, signals, portfolio, pairs, institutional, advanced-quant) |
-| P4 | Build — TDD Loop | ✅ (77 tests pass — 16+7+7+8+6+33) |
+| P4 | Build — TDD Loop | ✅ (102 tests pass — 16+7+7+8+6+33+25) |
 | P5 | Verify | ✅ |
 | P6 | Multi-Agent Review | ✅ (ponytail + logic review, all FEATs) |
-| P7 | QA — All Test Types | ✅ — FEAT-001/002/003/004/005/006 all PASS |
+| P7 | QA — All Test Types | ✅ — FEAT-001 through FEAT-010 all PASS |
 | P8 | PR → dev | ✅ (dev branch pushed) |
 | P9 | PR → staging | ✅ (staging branch pushed) |
 | P10 | PR → main + Release | ✅ (tagged v0.4.0 on main, release notes in docs/releases/v0.4.0.md) |

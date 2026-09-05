@@ -87,6 +87,16 @@ _reg("size_factor", "src.size_factor", "Factor", "Bottom decile by ADV (size pro
 _reg("high_52w", "src.high_52w", "Factor", "Closest to 52w high.")
 _reg("breakout_volume", "src.breakout_volume", "Trend", "Donchian breakout gated by volume >1.5x avg.")
 
+# FEAT-007 — Real fundamentals + real options
+_reg("magic_formula_real", "src.magic_formula", "Factor", "Greenblatt with REAL yfinance .info (EBIT/EV/ROE) when available.", params={"use_real_fundamentals": True})
+_reg("covered_call_real", "src.options_real", "Options", "Covered call using real option chains when available, BS fallback otherwise.")
+
+# FEAT-008 — Intraday (4)
+_reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb")
+_reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap")
+_reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom")
+_reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight")
+
 
 def list_strategies() -> list[dict]:
     """Return metadata for all registered strategies (id, name, family, description, default_params)."""

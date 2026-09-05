@@ -15,3 +15,5 @@ venv/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+cache/
+data/paper_state.json

@@ -1,14 +1,25 @@
 """FastAPI backend exposing all stock-1 strategies."""
 from __future__ import annotations
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Any
 
 from src.registry import list_strategies, run_backtest, get_strategy
 from src.universe import NIFTY50
+from src.paper import PaperBroker
+from src.paper_engine import run_rebalance, daily_report, get_latest_prices
+from src.signals import compute_signals
 
-app = FastAPI(title="stock-1 API", version="0.6.0")
+app = FastAPI(title="stock-1 API", version="1.0.0")
+
+REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
+REPORTS_DIR.mkdir(exist_ok=True)
+app.mount("/reports", StaticFiles(directory=str(REPORTS_DIR)), name="reports")
+
+_paper_broker = PaperBroker()
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,6 +83,49 @@ def backtest(req: BacktestRequest) -> dict:
     except Exception as e:
         raise HTTPException(500, f"backtest failed: {e}")
     return result
+
+
+# FEAT-009 — paper trading endpoints
+
+@app.get("/api/paper/state")
+def paper_state() -> dict:
+    prices = get_latest_prices(["RELIANCE.NS", "TCS.NS"])
+    return _paper_broker.mark_to_market(prices)
+
+
+@app.post("/api/paper/order")
+def paper_order(ticker: str, side: str, qty: int, price: float | None = None) -> dict:
+    if side not in ("buy", "sell"):
+        raise HTTPException(400, "side must be 'buy' or 'sell'")
+    if qty <= 0:
+        raise HTTPException(400, "qty must be > 0")
+    if price is None:
+        prices = get_latest_prices([ticker])
+        if ticker not in prices:
+            raise HTTPException(400, f"no price for {ticker}")
+        price = prices[ticker]
+    try:
+        return _paper_broker.place_order(ticker, side, int(qty), float(price))
+    except Exception as e:
+        raise HTTPException(500, f"order failed: {e}")
+
+
+@app.post("/api/paper/rebalance")
+def paper_rebalance(strategy_id: str = "bollinger", tickers: list[str] | None = None) -> dict:
+    try:
+        return run_rebalance(_paper_broker, strategy_id, tickers)
+    except Exception as e:
+        raise HTTPException(500, f"rebalance failed: {e}")
+
+
+@app.get("/api/paper/report")
+def paper_report() -> dict:
+    return daily_report(_paper_broker)
+
+
+@app.get("/api/signals")
+def signals(tickers: list[str] | None = None) -> dict:
+    return compute_signals(tickers)
 
 
 if __name__ == "__main__":

@@ -107,13 +107,15 @@ def run_pair(data: dict[str, pd.DataFrame], pair: tuple[str,str], capital: float
 def backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000, pair: tuple[str, str] | None = None,
              entry: float = 2.0, exit: float = 0.3, stop: float = 3.5,
              beta_window: int = 60, z_window: int = 60, notional_pct: float = 0.1) -> tuple[list, pd.DataFrame]:
-    """Strategy-library contract: pair backtest. If no pair given, picks first same-sector pair."""
-    from .pairs import find_pairs
+    """Strategy-library contract: pair backtest. If no pair given, picks first cointegrated pair."""
+    from .pairs import find_cointegrated
     if pair is None:
-        pairs = find_pairs(data)
+        pairs = find_cointegrated(data)
         if not pairs:
             return [], pd.DataFrame(columns=["equity"])
-        pair = pairs[0]
+        # find_cointegrated returns list of dicts with t1, t2 keys
+        first = pairs[0]
+        pair = (first["t1"], first["t2"])
     trades, eq, _ = run_pair(data, pair, capital=capital, entry=entry, exit=exit, stop=stop,
                               beta_window=beta_window, z_window=z_window, notional_pct=notional_pct)
     return trades, eq

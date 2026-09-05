@@ -2,6 +2,53 @@
 
 ## [Unreleased]
 
+## [v1.0.0] — 2026-09-05
+### Added — v1.0.0 milestones all shipped
+- **FEAT-007 Validation layer** (`src/validation.py`)
+  - Walk-forward OOS: rolling train/test window metrics per strategy
+  - Regime tests: 2018 crash, 2020 COVID, 2022 chop, full sample
+  - CSV + Markdown reports in `reports/`
+  - CLI: `python3 scripts/run_validation.py --tickers RELIANCE.NS,TCS.NS --period 3y --workers 4`
+- **FEAT-007C Real fundamentals** (`src/fundamentals.py`)
+  - yfinance `.info` extraction with 7-day JSON cache
+  - Real EBIT/EV/ROE for Greenblatt (`src/magic_formula.py` updated)
+  - `magic_formula_real` strategy registered
+- **FEAT-007D Real options** (`src/options_real.py`)
+  - Uses `ticker.option_chain()` when available
+  - Falls back to BS synthetic chain for NSE (.NS) tickers (yfinance limitation)
+  - `covered_call_real` strategy registered
+- **FEAT-008 Intraday** (`src/intraday.py`)
+  - 4 strategies: ORB, VWAP Reversion, Intraday Momentum, Overnight Drift
+  - 60m bar support via yfinance
+- **FEAT-009 Paper trading** (`src/paper.py`, `src/paper_engine.py`)
+  - `PaperBroker`: mock broker with state persistence (JSON), slippage model
+  - Daily rebalance from any strategy's targets
+  - Endpoints: POST /api/paper/order, POST /api/paper/rebalance, GET /api/paper/state, GET /api/paper/report
+- **FEAT-010 Today's signals** (`src/signals.py`)
+  - Per-strategy × per-ticker long/short/flat classification with strength
+  - Endpoint: GET /api/signals
+  - Powers the Signals tab in the frontend
+- **Frontend additions**
+  - Signals tab — all 56 strategies × NIFTY15 tickers, search + family filter
+  - Paper tab — place orders, rebalance from strategy, view portfolio
+  - Reports tab — view walk_forward.csv, regime_tests.csv, regime_tests.md
+  - /reports static mount in FastAPI for direct file access
+- Tests: 102 pass (was 77)
+- Validation report generated at `reports/regime_tests.md`, `reports/walk_forward.csv`
+
+### Caveats closed in v1.0.0
+- ✅ Walk-forward + regime tests (was open since v0.4.0)
+- ✅ Real Greenblatt using yfinance .info (was price-proxied)
+- ✅ Intraday bars (60m via yfinance)
+- ✅ Paper trading simulator (was no broker)
+- ✅ Today's signals endpoint (was no real-time view)
+
+### Caveats remaining (external blockers)
+- ❌ Live Zerodha broker — needs real account + Kite API keys
+- ❌ M&A event feed — yfinance has no announcements API
+- ❌ Real short interest — NSE borrow data not on free APIs
+- ❌ Real option chains for .NS — yfinance limitation, fallback to BS
+
 ## [v0.6.0] — 2026-08-27
 ### Added
 - FEAT-006: 50-Strategy Library + Web Frontend

@@ -34,7 +34,7 @@ docs/
 ```
 
 ## Honest caveat
-Solid starting point, not guaranteed edge. Needs walk-forward + regime checks (2018 crash, 2020 COVID, 2022 chop) before live capital. FEAT-001 costs not yet modeled (post-MVP); FEAT-002 models Indian costs (brokerage 0.03% + STT 0.025% + 5bps slippage).
+v1.0.0 ships with walk-forward + regime validation across all 56 strategies, but **in-sample backtests remain in-sample**. The Reports tab shows real OOS Sharpe for each strategy — treat any positive Sharpe as a hypothesis, not an edge. Real validation needs out-of-sample paper trading for 6+ months before any live capital. Remaining external blockers: live Zerodha broker, real .NS option chains, M&A event feed, short interest data — all listed as open in PROGRESS.md.
 
 ## Also included: FEAT-002 — Pairs Trading (market-neutral)
 ```bash
@@ -87,7 +87,34 @@ python3 -c "from src.dividend_carry import backtest; print(backtest(d)[1].tail()
 - **Risk Parity:** `src/risk_parity.py` — inverse-vol weighting, monthly selection + daily rebalance
 - **Dividend Carry:** `src/dividend_carry.py` — top-quartile yield, monthly rebalance (static yield map)
 
-**Total now: 50 strategies across 16 families, 77 tests pass.**
+**Total now: 56 strategies across 16 families, 102 tests pass.**
+
+## Validation
+
+Walk-forward OOS Sharpe + regime tests across all 56 strategies:
+```bash
+python3 scripts/run_validation.py --tickers RELIANCE.NS,TCS.NS --period 3y --workers 4
+# → reports/walk_forward.csv, reports/regime_tests.csv, reports/regime_tests.md
+```
+
+The Reports tab in the frontend shows the markdown output live.
+
+## Paper trading
+
+Mock broker with state persistence. Place orders, rebalance to any strategy's targets:
+```bash
+curl -X POST 'http://127.0.0.1:8000/api/paper/order?ticker=RELIANCE.NS&side=buy&qty=10'
+curl -X POST http://127.0.0.1:8000/api/paper/rebalance -H 'Content-Type: application/json' \
+  -d '{"strategy_id": "bollinger", "tickers": ["RELIANCE.NS","TCS.NS"]}'
+curl http://127.0.0.1:8000/api/paper/state
+```
+
+## Today's signals
+
+Per-strategy × per-ticker long/short/flat with strength:
+```bash
+curl 'http://127.0.0.1:8000/api/signals?tickers=RELIANCE.NS,TCS.NS'
+```
 
 ## Web Frontend
 
