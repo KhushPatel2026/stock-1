@@ -5,7 +5,7 @@ Name: stock-1 — Nifty 50 Trend-Following Systematic Strategy
 Repo: stock-1 (local, not yet pushed to standalone remote — parent is Khush/Softwares)
 Tech Stack: Python 3.11+, pandas, numpy, yfinance, pytest
 Started: 2026-08-27
-Current Version: v0.4.0 (FEAT-001+002+003+004 MVP — RELEASED)
+Current Version: v0.5.0 (FEAT-005 Quant Classics — RELEASED)
 Repo: https://github.com/KhushPatel2026/stock-1
 
 ## Milestones
@@ -22,6 +22,7 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | FEAT-002 | feature | Stat-Arb / Pairs Trading (Market-Neutral) | — | P7 ✅ | feat/FEAT-002-pairs-trading | — |
 | FEAT-003 | feature | Institutional Suite (Factors, Options Vol, Event-Driven, Risk Overlay, Walk-Forward) | — | P7 ✅ | feat/FEAT-003-institutional-suite | — |
 | FEAT-004 | feature | Advanced Quant (Gap-Fade, Sector-Neutral Momentum, Microstructure, Beta-Hedge, ML Overlay) | — | P7 ✅ | feat/FEAT-004-advanced-quant | — |
+| FEAT-005 | feature | Quant Classics (Bollinger, RSI2, Dual Momentum, Magic Formula, Risk Parity, Dividend Carry) | — | P7 ✅ | feat/FEAT-005-quant-classics | — |
 | SUB-004-01 | sub-issue | Gap-Fade Mean-Reversion (Index/Nifty gap >2σ) | FEAT-004 | P7 ✅ | feat/SUB-004-01-gap-fade | — |
 | SUB-004-02 | sub-issue | Sector-Neutral Cross-Sectional Momentum | FEAT-004 | P7 ✅ | feat/SUB-004-02-sector-neutral | — |
 | SUB-004-03 | sub-issue | Microstructure (Volume Spike + Price Acceleration) | FEAT-004 | P7 ✅ | feat/SUB-004-03-microstructure | — |
@@ -35,10 +36,10 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | P1 | Spec & Clarify | ✅ (FEAT-001/002/003/004 PRDs) |
 | P2 | Plan & Task Breakdown | ✅ |
 | P3 | API & Interface Design | ✅ (indicators, signals, portfolio, pairs, institutional, advanced-quant) |
-| P4 | Build — TDD Loop | ✅ (38 tests pass — 16+7+7+8) |
+| P4 | Build — TDD Loop | ✅ (44 tests pass — 16+7+7+8+6) |
 | P5 | Verify | ✅ |
 | P6 | Multi-Agent Review | ✅ (ponytail + logic review, all FEATs) |
-| P7 | QA — All Test Types | ✅ — FEAT-001 PASS, FEAT-002 PASS, FEAT-003 PASS, FEAT-004 PASS |
+| P7 | QA — All Test Types | ✅ — FEAT-001/002/003/004/005 all PASS |
 | P8 | PR → dev | ✅ (dev branch pushed) |
 | P9 | PR → staging | ✅ (staging branch pushed) |
 | P10 | PR → main + Release | ✅ (tagged v0.4.0 on main, release notes in docs/releases/v0.4.0.md) |
@@ -48,10 +49,11 @@ Repo: https://github.com/KhushPatel2026/stock-1
 ## Feature Registry
 | FEAT-ID | Name | Status | SUBs | GH Issue | Version |
 |---|---|---|---|---|---|
-| FEAT-001 | Trend-Following with Volatility-Adjusted Risk | Done (P7) — awaiting release | 5 | — | v0.1.0 |
-| FEAT-002 | Statistical Arbitrage / Pairs Trading (Market-Neutral, Cointegration) | Done (P7) — awaiting release | 4 | — | v0.2.0 |
-| FEAT-003 | Institutional Suite (Factors/Options/Event/Risk/Walk-Forward) | Done (P7) — awaiting release | 5 | — | v0.3.0 |
-| FEAT-004 | Advanced Quant (Gap-Fade/Sector-Neutral/Microstructure/Beta-Hedge/ML) | Done (P7) — awaiting release | 5 | — | v0.4.0 |
+| FEAT-001 | Trend-Following with Volatility-Adjusted Risk | Done (P7) — RELEASED v0.1.0 | 5 | — | v0.1.0 |
+| FEAT-002 | Statistical Arbitrage / Pairs Trading (Market-Neutral, Cointegration) | Done (P7) — RELEASED v0.2.0 | 4 | — | v0.2.0 |
+| FEAT-003 | Institutional Suite (Factors/Options/Event/Risk/Walk-Forward) | Done (P7) — RELEASED v0.3.0 | 5 | — | v0.3.0 |
+| FEAT-004 | Advanced Quant (Gap-Fade/Sector-Neutral/Microstructure/Beta-Hedge/ML) | Done (P7) — RELEASED v0.4.0 | 5 | — | v0.4.0 |
+| FEAT-005 | Quant Classics (Bollinger/RSI2/Dual Mom/Magic Formula/Risk Parity/Div Carry) | Done (P7) — RELEASED v0.5.0 | 6 | — | v0.5.0 |
 
 ## Sub-Issue Registry
 | SUB-ID | Parent FEAT | Name | Phase | Branch | GH Issue | Status |
@@ -75,6 +77,11 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | SUB-004-03 | FEAT-004 | Microstructure Signals | P7 ✅ | feat/SUB-004-03-microstructure | — | Done |
 | SUB-004-04 | FEAT-004 | Beta-Hedged Single Stock | P7 ✅ | feat/SUB-004-04-beta-hedge | — | Done |
 | SUB-004-05 | FEAT-004 | ML Overlay | P7 ✅ | feat/SUB-004-05-ml-overlay | — | Done |
+| SUB-005-01 | FEAT-005 | Single-stock mean reversion (Bollinger + RSI2) | P7 ✅ | feat/SUB-005-01-mean-reversion | — | Done |
+| SUB-005-02 | FEAT-005 | Combined momentum (Dual momentum) | P7 ✅ | feat/SUB-005-02-dual-momentum | — | Done |
+| SUB-005-03 | FEAT-005 | Value+quality composite (Magic formula) | P7 ✅ | feat/SUB-005-03-magic-formula | — | Done |
+| SUB-005-04 | FEAT-005 | Allocation (Risk parity) | P7 ✅ | feat/SUB-005-04-risk-parity | — | Done |
+| SUB-005-05 | FEAT-005 | Carry (Dividend yield) | P7 ✅ | feat/SUB-005-05-dividend-carry | — | Done |
 
 ## Task Registry
 | TASK-ID | Parent | Description | Size | MVP? | GH Issue | Status |
@@ -104,6 +111,12 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | SUB-004-03-T01 | SUB-004-03 | Microstructure (vol spike + acceleration) | S | MVP | — | Done |
 | SUB-004-04-T01 | SUB-004-04 | Beta-hedge (beta via covariance, Nifty short) | M | MVP | — | Done |
 | SUB-004-05-T01 | SUB-004-05 | ML overlay (GBM on factors, walk-forward CV) | M | MVP | — | Done |
+| SUB-005-01-T01 | SUB-005-01 | Bollinger band mean reversion (20d/2σ, SMA200 filter) | M | MVP | — | Done |
+| SUB-005-01-T02 | SUB-005-01 | RSI(2) Connors reversal | S | MVP | — | Done |
+| SUB-005-02-T01 | SUB-005-02 | Dual momentum (Antonacci absolute + relative) | M | MVP | — | Done |
+| SUB-005-03-T01 | SUB-005-03 | Magic formula (Greenblatt EY+ROE composite, price-proxied) | M | MVP | — | Done |
+| SUB-005-04-T01 | SUB-005-04 | Risk parity (inverse-vol weighting, daily rebalance) | M | MVP | — | Done |
+| SUB-005-05-T01 | SUB-005-05 | Dividend yield carry (top quartile, static yield map) | S | MVP | — | Done |
 
 ## Bug Tracker
 | BUG-ID | Severity | Feature | Description | Status | Fixed In |
@@ -122,6 +135,7 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | PRD | docs/prd/FEAT-002-pairs-trading.md | FEAT-002 | 2026-08-27 |
 | PRD | docs/prd/FEAT-003-institutional-suite.md | FEAT-003 | 2026-08-27 |
 | PRD | docs/prd/FEAT-004-advanced-quant.md | FEAT-004 | 2026-08-27 |
+| PRD | docs/prd/FEAT-005-quant-classics.md | FEAT-005 | 2026-08-27 |
 | API — Indicators | docs/api/indicators.md | FEAT-001 | 2026-08-27 |
 | API — Signals | docs/api/signals.md | FEAT-001 | 2026-08-27 |
 | API — Portfolio | docs/api/portfolio.md | FEAT-001 | 2026-08-27 |
@@ -132,10 +146,12 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | QA — FEAT-002 | docs/qa/FEAT-002-pairs-trading.md | FEAT-002 | 2026-08-27 |
 | QA — FEAT-003 | docs/qa/FEAT-003-institutional-suite.md | FEAT-003 | 2026-08-27 |
 | QA — FEAT-004 | docs/qa/FEAT-004-advanced-quant.md | FEAT-004 | 2026-08-27 |
+| QA — FEAT-005 | docs/qa/FEAT-005-quant-classics.md | FEAT-005 | 2026-08-27 |
 | ADR-001 | docs/adr/ADR-001-wilder-rma.md | FEAT-001 | 2026-08-27 |
 | ADR-002 | docs/adr/ADR-002-engle-granger-vs-johansen.md | FEAT-002 | 2026-08-27 |
 | ADR-003 | docs/adr/ADR-003-institutional-suite.md | FEAT-003 | 2026-08-27 |
 | ADR-004 | docs/adr/ADR-004-advanced-quant.md | FEAT-004 | 2026-08-27 |
+| ADR-005 | docs/adr/ADR-005-quant-classics.md | FEAT-005 | 2026-08-27 |
 | Runbook | docs/runbooks/strategies.md | all | 2026-08-27 |
 | Release notes | docs/releases/v0.4.0.md | all | 2026-08-27 |
 | README | README.md | — | 2026-08-27 |

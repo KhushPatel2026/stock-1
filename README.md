@@ -70,9 +70,30 @@ python3 -c "from src.ml_overlay import backtest; print(backtest(d)[1].tail())"
 - **Beta-Hedge:** `src/beta_hedge.py` — `rolling_beta()` cov/var, long stock + short beta×Nifty (synthetic equal-weight proxy)
 - **ML Overlay:** `src/ml_overlay.py` — HistGradientBoosting on factors, walk-forward train/test, long top 3 probs
 
+## Quant Classics — FEAT-005
+Six canonical strategies that fill the family gaps left by FEAT-001..004. Each is a single backtest one-liner.
+```bash
+python3 -c "from src.bollinger import backtest; print(backtest(d)[1].tail())"
+python3 -c "from src.rsi2 import backtest; print(backtest(d)[1].tail())"
+python3 -c "from src.dual_momentum import backtest; print(backtest(d)[1].tail())"
+python3 -c "from src.magic_formula import backtest; print(backtest(d)[1].tail())"
+python3 -c "from src.risk_parity import backtest; print(backtest(d)[1].tail())"
+python3 -c "from src.dividend_carry import backtest; print(backtest(d)[1].tail())"
+```
+- **Bollinger:** `src/bollinger.py` — 20d SMA ± 2σ, SMA200 trend filter, mean-reversion to middle band
+- **RSI(2):** `src/rsi2.py` — Connors short-horizon reversal, exit on 5d SMA cross
+- **Dual Momentum:** `src/dual_momentum.py` — Antonacci: 12M absolute gate + relative cross-section rank
+- **Magic Formula:** `src/magic_formula.py` — Greenblatt EY+ROE composite (proxied from price — see ADR-005)
+- **Risk Parity:** `src/risk_parity.py` — inverse-vol weighting, monthly selection + daily rebalance
+- **Dividend Carry:** `src/dividend_carry.py` — top-quartile yield, monthly rebalance (static yield map)
+
+**Total now: 12 strategy families, 44 tests pass.**
+
 ## Ponytail notes
 - No abstract Strategy class, no plugin system — straight functions until second strategy exists.
 - No DB — parquet cache only.
 - FEAT-001: yfinance + pandas only. FEAT-002 adds statsmodels (coint) — minimal justified dep.
 - No Johansen/Kalman — Engle-Granger + rolling OLS until second pair model needed.
 - FEAT-004: sklearn HGB only (already installed), daily proxies for tick data — replace with Zerodha Ticker feed when live. `// ponytail: daily proxy`
+- FEAT-005: dividend yield is a static dict — refresh from NSE when live. Magic formula uses price-derived proxies (12M return + return/vol) — documented in ADR-005, swap for real EBIT/EV when fundamentals DB available.
+- Options-based strategies (full VRP, iron condor, cash-secured put) skipped — need chain data, add when source wired.

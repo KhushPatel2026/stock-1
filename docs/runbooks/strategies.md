@@ -48,7 +48,20 @@ python3 -c "from src.ml_overlay import backtest; from src.data import fetch_many
 python3 -m pytest tests -q --no-header
 ```
 
+## FEAT-005 — Quant Classics
+```bash
+python3 -c "from src.data import fetch_many; from src.universe import NIFTY15; d=fetch_many(NIFTY15, period='2y')"  # cache once
+python3 -c "from src.bollinger import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+python3 -c "from src.rsi2 import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+python3 -c "from src.dual_momentum import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+python3 -c "from src.magic_formula import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+python3 -c "from src.risk_parity import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+python3 -c "from src.dividend_carry import backtest; from src.data import fetch_many; from src.universe import NIFTY15; print(backtest(fetch_many(NIFTY15, period='2y'))[1].tail())"
+```
+
 ## Known limits
 - FEAT-001 backtest does not model transaction costs (post-MVP).
 - FEAT-004 microstructure uses daily proxies for tick data; replace with Zerodha feed when live. `// ponytail: daily proxy`
-- Walk-forward and regime tests (2018 crash / 2020 COVID / 2022 chop) are in scope for v1.0.0 — not in v0.4.0.
+- Walk-forward and regime tests (2018 crash / 2020 COVID / 2022 chop) are in scope for v1.0.0 — not in v0.5.0.
+- Magic formula uses price-derived proxies (12M return + return/vol) for EY/ROE; documented in ADR-005. Swap for real EBIT/EV when fundamentals DB is available.
+- Dividend yield is a static `YIELDS` dict in `src/dividend_carry.py`; refresh manually or wire a live NSE source.
