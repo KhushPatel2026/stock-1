@@ -20,7 +20,7 @@ def bs_call(S: float, K: float, T: float, r: float, sigma: float) -> float:
     d2=d1 - sigma*math.sqrt(T)
     return S*norm.cdf(d1) - K*math.exp(-r*T)*norm.cdf(d2)
 
-def covered_call_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06) -> tuple[list[dict], pd.DataFrame]:
+def covered_call_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_000, otm: float = 0.05, dte: int = 30, r: float = 0.06, iv_override: float | None = None) -> tuple[list[dict], pd.DataFrame]:
     # pick first ticker for simplicity — institutional would run per stock, we run portfolio equal weight
     tickers=list(data.keys())
     if not tickers:
@@ -63,6 +63,9 @@ def covered_call_backtest(data: dict[str, pd.DataFrame], capital: float = 1_000_
                 # realized vol 60d
                 rets=data[t]["close"].pct_change().tail(60).dropna()
                 sigma=float(rets.std()*math.sqrt(252)) if len(rets)>=20 else 0.2
+                # NSE ATM IV (when available) beats realized vol for pricing new calls
+                if iv_override:
+                    sigma=max(sigma, float(iv_override))
                 sigma=max(sigma,0.15)
                 K=S*(1+otm)
                 T=dte/365

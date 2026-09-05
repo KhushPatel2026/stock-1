@@ -127,6 +127,7 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [recLoading, setRecLoading] = useState(false)
   const [decLoading, setDecLoading] = useState(false)
+  const [decError, setDecError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [chartMode, setChartMode] = useState<"equity" | "drawdown">("equity")
   const [sortField, setSortField] = useState<SortField>("sharpe")
@@ -187,9 +188,13 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
       return
     }
     setDecLoading(true)
+    setDecError(null)
     fetchDecisions(selectedTickers, "3mo")
       .then(r => setDecisions(r.decisions))
-      .catch(() => setDecisions([]))
+      .catch(e => {
+        setDecisions([])
+        setDecError(e?.message ? String(e.message).slice(0, 160) : "Consensus scan failed — backend may still be warming up. Retry in a minute.")
+      })
       .finally(() => setDecLoading(false))
 
     setRecLoading(true)
@@ -248,13 +253,13 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
         setResults(out)
       } else if (preset.action === "all") {
         const total = strategies.length
-        setProgress({ done: 0, total, label: "Running all 56 algorithms" })
+        setProgress({ done: 0, total, label: `Running all ${total} algorithms` })
         const out: { id: string; result: BacktestResult }[] = []
         for (let i = 0; i < strategies.length; i += 6) {
           const batch = strategies.slice(i, i + 6).map(s => s.id)
           const batchResults = await Promise.all(batch.map(runOne))
           for (const r of batchResults) if (!r.error) out.push(r)
-          setProgress({ done: Math.min(i + batch.length, total), total, label: "All 56 algorithms" })
+          setProgress({ done: Math.min(i + batch.length, total), total, label: `All ${total} algorithms` })
         }
         setResults(out.sort((a, b) => (b.result.metrics.sharpe ?? -99) - (a.result.metrics.sharpe ?? -99)))
       } else if (preset.action === "compare_families") {
@@ -523,7 +528,12 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
           </CardHeader>
 
           <CardContent className="px-5 pb-5">
-            {decisions.length === 0 && !decLoading && (
+            {decError && (
+              <div className="mb-3 p-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 text-xs text-rose-400">
+                Consensus scan failed: {decError}
+              </div>
+            )}
+            {decisions.length === 0 && !decLoading && !decError && (
               <div className="py-8 text-center border border-dashed border-border/70 rounded-xl bg-muted/10 text-xs text-muted-foreground">
                 Add stock tickers below to run live consensus across quantitative algorithms.
               </div>
@@ -587,6 +597,56 @@ export default function BacktestPanel({ targetStrategy, targetTicker, onNavigate
                           <span className="text-rose-500 font-medium">↓ {d.n_short} Short</span>
                         </div>
                       </div>
+
+                      {/* Trade plan: entry / stop / target / timeframe */}
+                      {d.plan && (
+                        <div className="rounded-lg border border-border/50 bg-muted/20 p-2 space-y-1.5">
+                          <div className="grid grid-cols-3 gap-1 text-center">
+                            <div>
+                              <div className="text-[9px] uppercase font-mono text-muted-foreground">
+                                Entry{d.plan.live_entry ? " · Live" : ""}
+                              </div>
+                              <div className="text-xs font-mono font-bold text-foreground">
+                                ₹{d.plan.entry.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] uppercase font-mono text-rose-400">Stop</div>
+                              <div className="text-xs font-mono font-bold text-rose-400">
+                                ₹{d.plan.stop_loss.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-[9px] font-mono text-rose-400/70">{fmtSigned(d.plan.stop_pct)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] uppercase font-mono text-emerald-400">Target</div>
+                              <div className="text-xs font-mono font-bold text-emerald-400">
+                                ₹{d.plan.target.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-[9px] font-mono text-emerald-400/70">{fmtSigned(d.plan.target_pct)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                              {d.plan.timeframe}
+                            </span>
+                            <span className="text-muted-foreground" title="Reward-to-risk">
+                              R:R {d.plan.risk_reward}
+                            </span>
+                          </div>
+                          <p className="text-[10px] leading-relaxed text-muted-foreground" title={d.plan.insight}>
+                            {d.plan.insight}
+                          </p>
+                          <p className="text-[9px] text-muted-foreground/60 font-mono">
+                            {d.plan.live_entry ? `Live ${d.plan.entry_label} · ` : `As of ${d.plan.as_of} · `}
+                            ATR ₹{d.plan.atr} ({d.plan.atr_pct}%)
+                          </p>
+                        </div>
+                      )}
+                      {!d.plan && (
+                        <div className="rounded-lg border border-dashed border-border/50 p-2 text-[10px] text-muted-foreground">
+                          Levels unavailable — feed skipped this ticker. Hit Scan to retry.
+                        </div>
+                      )}
 
                       {/* Top Strategies driving signal */}
                       {d.long_strategies.length > 0 && isBuy && (
@@ -1387,4 +1447,9 @@ function strategyName(id: string, strategies: Strategy[]): string {
 function fmt(v: number | undefined): string {
   if (v == null || Number.isNaN(v)) return "—"
   return `${(v * 100).toFixed(2)}%`
+}
+
+function fmtSigned(v: number | undefined): string {
+  if (v == null || Number.isNaN(v)) return "—"
+  return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`
 }

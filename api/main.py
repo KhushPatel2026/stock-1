@@ -1,7 +1,15 @@
 """FastAPI backend exposing all stock-1 strategies."""
 from __future__ import annotations
 import os
+import requests
 from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except Exception:
+    pass
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -122,31 +130,66 @@ class DecisionsRequest(BaseModel):
     period: str = "3mo"
 
 
+# Day-level cache: OOS-Sharpe weights are stable intraday; recompute once per day.
+# Key: (date, tickers-key). First hit warms in parallel (8 workers); later hits are instant.
+_WEIGHTS_CACHE: dict[tuple, dict[str, float]] = {}
+
+
+def _strategy_weight(strategy_id: str, tickers: list[str], data: dict | None = None) -> float:
+    from src.validation import run_walk_forward
+    try:
+        r = run_walk_forward(strategy_id, tickers, period="1y", chunk=63, data=data)
+        if r is None or r.empty:
+            return 0.0
+        return max(float(r.iloc[0].get("mean_oos_sharpe", 0)), 0)
+    except Exception:
+        return 0.0
+
+
+def _oos_weights(strategy_ids: list[str], tickers: list[str], data: dict | None = None) -> dict[str, float]:
+    import datetime
+    from concurrent.futures import ThreadPoolExecutor
+    key = (datetime.date.today().isoformat(), tuple(sorted(tickers)))
+    if key in _WEIGHTS_CACHE:
+        return _WEIGHTS_CACHE[key]
+    weights: dict[str, float] = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for sid, w in zip(strategy_ids, pool.map(lambda s: _strategy_weight(s, tickers, data), strategy_ids)):
+            weights[sid] = w
+    _WEIGHTS_CACHE.clear()  # ponytail: keep one day only, no unbounded growth
+    _WEIGHTS_CACHE[key] = weights
+    return weights
+
+
 @app.post("/api/decisions")
 def decisions(req: DecisionsRequest) -> dict:
-    """Per-ticker consensus: BUY / SELL / HOLD based on signals + recent Sharpe weighting."""
+    """Per-ticker consensus: BUY / SELL / HOLD + entry/SL/target/timeframe/insight."""
     if not req.tickers:
         raise HTTPException(400, "tickers required")
+    if len(req.tickers) > 25:
+        raise HTTPException(400, "max 25 tickers")
     from src.signals import compute_signals_for_tickers
-    from src.registry import list_strategies
+    from src.data import fetch_many, fetch, live_price
+    from src.trade_plan import build_plan
 
     items = list_strategies()
-    # Get recent OOS Sharpe per strategy for weighting
-    from src.validation import run_walk_forward
-    weights: dict[str, float] = {}
-    for s in items:
-        try:
-            r = run_walk_forward(s["id"], req.tickers, period="1y", chunk=63)
-            if r is None or r.empty:
-                weights[s["id"]] = 0
-            else:
-                sharpe = float(r.iloc[0].get("mean_oos_sharpe", 0))
-                weights[s["id"]] = max(sharpe, 0)  # only positive sharpe strategies vote
-        except Exception:
-            weights[s["id"]] = 0
+    families = {s["id"]: s["family"] for s in items}
+    names = {s["id"]: s["name"] for s in items}
+    # ONE shared 1y fetch: feeds levels AND all 89 weight runs (no per-strategy refetch,
+    # no rate-limit hammering, identical bars everywhere).
+    ohlc = fetch_many(req.tickers, period="1y")
+    for t in req.tickers:  # retry loners once with fresh download (no cache)
+        if t not in ohlc:
+            try:
+                ohlc[t] = fetch(t, period="1y", use_cache=False)
+            except Exception:
+                pass
+    weights = _oos_weights([s["id"] for s in items], req.tickers, data=ohlc)
 
-    # Get current signals
+    # Current signals (3mo window is fast)
     sig_map = compute_signals_for_tickers(req.tickers, period=req.period)
+    # Live entries (1m bars; falls back to daily close; never raises)
+    live = {t: live_price(t) for t in req.tickers}
 
     out = []
     for ticker in req.tickers:
@@ -190,6 +233,17 @@ def decisions(req: DecisionsRequest) -> dict:
 
         long_strats.sort(key=lambda x: -x[1])
         short_strats.sort(key=lambda x: -x[1])
+        df = ohlc.get(ticker)
+        if df is not None and not df.empty:
+            try:
+                lp, lp_label, lp_live = live.get(ticker, (None, "", False))
+                plan = build_plan(ticker, df, decision, confidence,
+                                  long_strats, short_strats, families, names,
+                                  entry=lp, entry_label=lp_label if lp_live else "")
+            except Exception:
+                plan = None
+        else:
+            plan = None
         out.append({
             "ticker": ticker,
             "decision": decision,
@@ -202,6 +256,7 @@ def decisions(req: DecisionsRequest) -> dict:
             "n_long": n_long,
             "n_short": n_short,
             "n_flat": n_flat,
+            "plan": plan,
         })
     out.sort(key=lambda x: (x["decision"] != "BUY", -(x["score"])))
     return {"as_of": req.period, "tickers": req.tickers, "decisions": out}
@@ -380,6 +435,73 @@ def upstox_server_info() -> dict:
                 "If Upstox requires IP-based access, whitelist the public_ip below.",
         "public_ip": public_ip,
     }
+
+
+# ---------------------------------------------------------------------------
+# Upstox OAuth — login flow → access token exchange
+# ---------------------------------------------------------------------------
+
+UPSTOX_AUTH_URL = "https://api.upstox.com/v2/login/authorization/dialog"
+UPSTOX_TOKEN_URL = "https://api.upstox.com/v2/login/authorize"
+DEFAULT_REDIRECT_URI = os.getenv("UPSTOX_REDIRECT_URI", "http://localhost:5173/callback")
+
+
+@app.get("/api/upstox/auth-url")
+def upstox_auth_url(redirect_uri: str | None = None) -> dict:
+    """Build the Upstox OAuth login URL. Frontend opens this in a popup/redirect."""
+    api_key = os.getenv("UPSTOX_API_KEY", "")
+    redirect = redirect_uri or DEFAULT_REDIRECT_URI
+    if not api_key:
+        raise HTTPException(500, "UPSTOX_API_KEY not set in .env")
+    params = {
+        "client_id": api_key,
+        "redirect_uri": redirect,
+        "response_type": "code",
+        "scope": "orders holdings portfolio",
+    }
+    qs = "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in params.items())
+    return {"url": f"{UPSTOX_AUTH_URL}?{qs}", "redirect_uri": redirect}
+
+
+class UpstoxCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str | None = None
+
+
+@app.post("/api/upstox/callback")
+def upstox_callback(req: UpstoxCallbackRequest) -> dict:
+    """Exchange OAuth code for access token. Frontend calls this from /callback page."""
+    global _upstox_token
+    api_key = os.getenv("UPSTOX_API_KEY", "")
+    api_secret = os.getenv("UPSTOX_API_SECRET", "")
+    redirect = req.redirect_uri or DEFAULT_REDIRECT_URI
+    if not api_key or not api_secret:
+        raise HTTPException(500, "UPSTOX_API_KEY or UPSTOX_API_SECRET missing in .env")
+    try:
+        r = requests.post(
+            UPSTOX_TOKEN_URL,
+            data={
+                "code": req.code,
+                "client_id": api_key,
+                "client_secret": api_secret,
+                "redirect_uri": redirect,
+                "grant_type": "authorization_code",
+            },
+            headers={"Accept": "application/json"},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            raise HTTPException(r.status_code, f"upstox exchange failed: {r.text[:300]}")
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise HTTPException(500, f"no access_token in response: {data}")
+        _upstox_token = token
+        return {"ok": True, "token_length": len(token)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"upstox callback failed: {e}")
 
 
 # ---------------------------------------------------------------------------

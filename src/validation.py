@@ -80,9 +80,11 @@ def _slice_period(eq: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
     return eq.loc[pd.Timestamp(start):pd.Timestamp(end)]
 
 
-def chunk_oos(strategy_id: str, tickers: list[str], period: str = "5y", chunk: int = 126) -> pd.DataFrame:
+def chunk_oos(strategy_id: str, tickers: list[str], period: str = "5y", chunk: int = 126,
+              data: dict | None = None) -> pd.DataFrame:
     """Run full backtest, split equity into non-overlapping chunks of size `chunk`."""
-    data = fetch_many(tickers, period=period)
+    if data is None:
+        data = fetch_many(tickers, period=period)
     _, eq = _run_strategy(strategy_id, data)
     if eq.empty:
         return pd.DataFrame(columns=["strategy_id", "window", "start", "end", "sharpe", "total_return", "max_dd", "n_bars"])
@@ -150,9 +152,10 @@ def walk_forward(strategy_id: str, tickers: list[str], period: str = "5y",
     return pd.DataFrame(rows)
 
 
-def run_walk_forward(strategy_id: str, tickers: list[str], period: str = "5y", chunk: int = 126) -> pd.DataFrame:
+def run_walk_forward(strategy_id: str, tickers: list[str], period: str = "5y", chunk: int = 126,
+                     data: dict | None = None) -> pd.DataFrame:
     """Public wrapper around `chunk_oos` returning a single summary row per strategy."""
-    df = chunk_oos(strategy_id, tickers, period=period, chunk=chunk)
+    df = chunk_oos(strategy_id, tickers, period=period, chunk=chunk, data=data)
     if df.empty:
         return pd.DataFrame([{
             "strategy_id": strategy_id, "n_windows": 0,

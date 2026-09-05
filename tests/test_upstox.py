@@ -18,6 +18,29 @@ from src.portfolio import fetch_portfolio
 LIVE = bool(os.getenv("UPSTOX_ACCESS_TOKEN"))
 
 
+@pytest.fixture(autouse=True)
+def _scrub_upstox_env(monkeypatch):
+    """Hermetic unit tests: a token in .env (loaded via src.ai import order) must not
+    leak into 'unauthenticated' cases. Live tests re-read env themselves."""
+    monkeypatch.delenv("UPSTOX_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("UPSTOX_API_KEY", raising=False)
+
+
+def _live_client() -> UpstoxClient:
+    """Live tests need a *valid* token; skip (don't fail) when expired/missing."""
+    c = UpstoxClient()
+    if not c.is_authenticated():
+        pytest.skip("no live UPSTOX token in env")
+    return c
+
+
+def _call_or_skip(fn):
+    try:
+        return fn()
+    except UpstoxAuthError:
+        pytest.skip("UPSTOX token expired/invalid")
+
+
 # ---------------------------------------------------------------------------
 # Pure helpers — always run
 # ---------------------------------------------------------------------------
@@ -62,15 +85,15 @@ def test_fetch_portfolio_without_token():
 
 @pytest.mark.skipif(not LIVE, reason="UPSTOX_ACCESS_TOKEN not set")
 def test_live_profile():
-    c = UpstoxClient()
-    p = c.get_profile()
+    c = _live_client()
+    p = _call_or_skip(c.get_profile)
     assert isinstance(p, dict)
 
 
 @pytest.mark.skipif(not LIVE, reason="UPSTOX_ACCESS_TOKEN not set")
 def test_live_holdings():
-    c = UpstoxClient()
-    h = c.get_holdings()
+    c = _live_client()
+    h = _call_or_skip(c.get_holdings)
     # Upstox returns {"data": [...]} or just a list
     items = h.get("data", h) if isinstance(h, dict) else h
     assert isinstance(items, list)
@@ -78,15 +101,15 @@ def test_live_holdings():
 
 @pytest.mark.skipif(not LIVE, reason="UPSTOX_ACCESS_TOKEN not set")
 def test_live_quote():
-    c = UpstoxClient()
-    q = c.get_quote("NSE_EQ", "RELIANCE")
+    c = _live_client()
+    q = _call_or_skip(lambda: c.get_quote("NSE_EQ", "RELIANCE"))
     assert isinstance(q, dict)
 
 
 @pytest.mark.skipif(not LIVE, reason="UPSTOX_ACCESS_TOKEN not set")
 def test_live_india_vix():
-    c = UpstoxClient()
-    v = c.get_india_vix()
+    c = _live_client()
+    v = _call_or_skip(c.get_india_vix)
     assert isinstance(v, dict)
 
 
@@ -99,6 +122,9 @@ def client_app():
     """Spin up the FastAPI app with TestClient; ensure no token is set."""
     from fastapi.testclient import TestClient
     import api.main as api_main
+    # api.main runs load_dotenv(.env) at import — scrub AFTER import, then drop the global
+    os.environ.pop("UPSTOX_ACCESS_TOKEN", None)
+    os.environ.pop("UPSTOX_API_KEY", None)
     api_main._upstox_token = None
     return TestClient(api_main.app)
 

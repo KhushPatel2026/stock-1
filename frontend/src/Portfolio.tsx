@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Info, Wallet } from "lucide-react"
-import { fetchPortfolio, setUpstoxToken, fetchUpstoxStatus, fetchInsightsPortfolio, fetchIndiaVix } from "@/api"
+import { Loader2, RefreshCw, ExternalLink, AlertTriangle, Info, Wallet, LogIn } from "lucide-react"
+import { fetchPortfolio, setUpstoxToken, fetchUpstoxStatus, fetchInsightsPortfolio, fetchIndiaVix, fetchUpstoxAuthUrl, exchangeUpstoxCode } from "@/api"
 import type { PortfolioData, UpstoxHolding } from "@/api"
 
 export default function Portfolio() {
@@ -13,9 +13,11 @@ export default function Portfolio() {
   const [authStatus, setAuthStatus] = useState<boolean | null>(null)
   const [data, setData] = useState<PortfolioData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState(false)
   const [insights, setInsights] = useState<any | null>(null)
   const [vix, setVix] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [oauthMsg, setOauthMsg] = useState<string | null>(null)
   const [showTokenForm, setShowTokenForm] = useState(false)
 
   const refresh = async () => {
@@ -41,7 +43,39 @@ export default function Portfolio() {
     }
   }
 
-  useEffect(() => { refresh() }, [])
+  // Handle OAuth callback (when redirected back with ?code=)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get("code")
+    if (code && window.location.pathname === "/callback") {
+      setOauthLoading(true)
+      setOauthMsg("Exchanging OAuth code for access token...")
+      const redirect_uri = `${window.location.origin}/callback`
+      exchangeUpstoxCode(code, redirect_uri)
+        .then(r => {
+          setOauthMsg(`✓ Token stored (length ${r.token_length}). Redirecting to portfolio...`)
+          setTimeout(() => { window.location.href = "/portfolio" }, 1500)
+        })
+        .catch(e => {
+          setOauthMsg(`✗ OAuth exchange failed: ${e.message}`)
+          setOauthLoading(false)
+        })
+    } else {
+      refresh()
+    }
+  }, [])
+
+  const startOAuth = async () => {
+    setOauthLoading(true)
+    setOauthMsg("Opening Upstox login...")
+    try {
+      const { url } = await fetchUpstoxAuthUrl(`${window.location.origin}/callback`)
+      window.location.href = url
+    } catch (e: any) {
+      setOauthMsg(`Failed to start OAuth: ${e.message}`)
+      setOauthLoading(false)
+    }
+  }
 
   const saveToken = async () => {
     if (!token) return
@@ -69,18 +103,27 @@ export default function Portfolio() {
               <CardDescription>
                 {authStatus === null ? "Checking..." : authStatus
                   ? "Connected — refreshes every 60s"
-                  : "Not connected. Add your Upstox access token below."}
+                  : "Not connected. Connect via Upstox OAuth or paste a token."}
               </CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button onClick={startOAuth} disabled={oauthLoading} size="sm">
+                {oauthLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LogIn className="h-4 w-4 mr-2" />}
+                {oauthLoading ? "Connecting..." : authStatus ? "Re-login Upstox" : "Connect Upstox (OAuth)"}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setShowTokenForm(!showTokenForm)}>
-                {authStatus ? "Update token" : "Connect Upstox"}
+                Paste token
               </Button>
               <Button variant="outline" size="icon" onClick={refresh} disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
             </div>
           </div>
+          {oauthMsg && (
+            <div className="mt-3 text-xs px-3 py-2 rounded-md bg-muted/40 border border-border/60 text-foreground/90">
+              {oauthMsg}
+            </div>
+          )}
         </CardHeader>
         {showTokenForm && (
           <CardContent className="border-t pt-4 space-y-3">

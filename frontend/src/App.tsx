@@ -24,15 +24,35 @@ import PaperPanel from "@/PaperPanel"
 import ReportsPanel from "@/ReportsPanel"
 import Portfolio from "@/Portfolio"
 import AIInsights from "@/AIInsights"
+import Callback from "@/Callback"
 import { ThemeToggle } from "@/components/ThemeToggle"
 
 export default function App() {
+  // OAuth callback route — render standalone page
+  if (typeof window !== "undefined" && window.location.pathname === "/callback") {
+    return <Callback />
+  }
+
   const [activeTab, setActiveTab] = useState("backtest")
   const [targetStrategy, setTargetStrategy] = useState<string | null>(null)
   const [targetTicker, setTargetTicker] = useState<string | null>(null)
   const [paperOrderPrefill, setPaperOrderPrefill] = useState<{ ticker: string; side: "buy" | "sell" } | null>(null)
   const [istTime, setIstTime] = useState("")
   const [isMarketOpen, setIsMarketOpen] = useState(false)
+  const [strategyCount, setStrategyCount] = useState<number | null>(null)
+  const [familyCount, setFamilyCount] = useState<number | null>(null)
+
+  // Live strategy/family counts — never hardcode, the library keeps growing
+  useEffect(() => {
+    fetch(`${(import.meta as any).env?.VITE_API_URL || ""}/api/strategies`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((s: unknown[]) => setStrategyCount(s.length))
+      .catch(() => {})
+    fetch(`${(import.meta as any).env?.VITE_API_URL || ""}/api/families`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((f: unknown[]) => setFamilyCount(f.length))
+      .catch(() => {})
+  }, [])
 
   // Live IST market status clock (NSE: 9:15 AM - 3:30 PM IST, Mon-Fri)
   useEffect(() => {
@@ -124,9 +144,9 @@ export default function App() {
           {/* Quick Stats & Utilities */}
           <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
             <div className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground font-mono bg-muted/40 px-3 py-1 rounded-lg border border-border/60">
-              <span className="font-semibold text-foreground">76</span> Strategies
+              <span className="font-semibold text-foreground">{strategyCount ?? "…"}</span> Strategies
               <span>·</span>
-              <span className="font-semibold text-foreground">16</span> Families
+              <span className="font-semibold text-foreground">{familyCount ?? "…"}</span> Families
               <span>·</span>
               <span className="text-emerald-500 font-medium">Walk-Forward</span> Validated
             </div>
@@ -201,7 +221,7 @@ export default function App() {
                 <BookOpen className="h-3.5 w-3.5 text-cyan-500" />
                 Strategy Library
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] font-mono h-4">
-                  76
+                  {strategyCount ?? "…"}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger
@@ -266,11 +286,11 @@ export default function App() {
                     <Cpu className="h-4 w-4" />
                     Quantitative Core
                   </div>
-                  <CardTitle className="text-lg">76 Systematic Strategies</CardTitle>
+                  <CardTitle className="text-lg">{strategyCount ?? "…"} Systematic Strategies</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground space-y-2 leading-relaxed">
                   <p>
-                    Covers 16 mathematical families: Trend Following, Mean Reversion, Momentum, Factor
+                    Covers {familyCount ?? "…"} mathematical families: Trend Following, Mean Reversion, Momentum, Factor
                     Investing (Magic Formula, Quality, Value), Volatility Breakouts, Options Modeling,
                     Statistical Arbitrage, Cross-Sectional Ranking, and Machine Learning overlays.
                   </p>

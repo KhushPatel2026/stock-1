@@ -78,9 +78,35 @@ export async function fetchRecommendations(tickers: string[], period: string = "
   return r.json()
 }
 
-export interface Decision {
+export interface TradePlan {
   ticker: string
   decision: "BUY" | "SELL" | "HOLD"
+  confidence: number
+  entry: number
+  stop_loss: number
+  target: number
+  stop_pct: number
+  target_pct: number
+  risk_reward: number
+  timeframe: string
+  timeframe_detail: string
+  price: number
+  atr: number
+  atr_pct: number
+  day_change_pct: number
+  above_sma200: boolean | null
+  leaders: string[]
+  voter_weight_pct: number
+  insight: string
+  note: string
+  as_of: string
+  live_entry: boolean
+  entry_label: string
+}
+
+export interface Decision {
+  ticker: string
+  decision: string
   confidence: number
   long_pct: number
   short_pct: number
@@ -90,6 +116,7 @@ export interface Decision {
   n_long: number
   n_short: number
   n_flat: number
+  plan?: TradePlan
 }
 
 export async function fetchDecisions(tickers: string[], period: string = "3mo"): Promise<{
@@ -233,6 +260,22 @@ export async function setUpstoxToken(access_token: string): Promise<{ ok: boolea
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ access_token }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function fetchUpstoxAuthUrl(redirect_uri: string = window.location.origin + "/callback"): Promise<{ url: string; redirect_uri: string }> {
+  const r = await fetch(`${API}/api/upstox/auth-url?redirect_uri=${encodeURIComponent(redirect_uri)}`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function exchangeUpstoxCode(code: string, redirect_uri: string): Promise<{ ok: boolean; token_length: number }> {
+  const r = await fetch(`${API}/api/upstox/callback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, redirect_uri }),
   })
   if (!r.ok) throw new Error(await r.text())
   return r.json()

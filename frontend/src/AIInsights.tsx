@@ -18,7 +18,7 @@ export default function AIInsights() {
 
   useEffect(() => {
     fetchAIStatus().then(setStatus).catch(() => setStatus({ available: false }))
-    loadPersonalized()
+    // No auto AI call — user must click button
   }, [])
 
   const loadPersonalized = async () => {
@@ -89,22 +89,35 @@ export default function AIInsights() {
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
             Your next steps
-            <Button variant="ghost" size="sm" onClick={loadPersonalized} disabled={loading} className="ml-auto">
-              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Refresh"}
-            </Button>
           </CardTitle>
+          <CardDescription>
+            {personalized?.text
+              ? `Generated ${new Date().toLocaleString()}`
+              : "Click below to ask Gemini for personalized next actions based on your usage."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {personalized?.text ? (
-            <pre className="text-sm whitespace-pre-wrap font-sans">{personalized.text}</pre>
-          ) : (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+          {!personalized?.text && !loading && (
+            <Button onClick={loadPersonalized} disabled={loading} variant="default">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Get my personalized next steps
+            </Button>
           )}
-          {personalized?.stats && (
-            <div className="text-xs text-muted-foreground mt-3 pt-3 border-t">
-              <div>Most-used strategies: {personalized.stats.most_used?.join(", ") || "none yet"}</div>
-              <div>Recent runs: {personalized.stats.recent_runs?.length || 0}</div>
-            </div>
+          {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+          {personalized?.text && (
+            <>
+              <pre className="text-sm whitespace-pre-wrap font-sans">{personalized.text}</pre>
+              {personalized?.stats && (
+                <div className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                  <div>Most-used strategies: {personalized.stats.most_used?.join(", ") || "none yet"}</div>
+                  <div>Recent runs: {personalized.stats.recent_runs?.length || 0}</div>
+                </div>
+              )}
+              <Button variant="outline" size="sm" onClick={loadPersonalized} disabled={loading} className="mt-3">
+                {loading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                Regenerate
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

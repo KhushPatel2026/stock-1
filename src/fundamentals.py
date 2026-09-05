@@ -1,4 +1,4 @@
-"""Real fundamentals via yfinance .info, cached to disk for 7 days."""
+"""Real fundamentals — screener.in first, yfinance .info fills gaps, 7-day disk cache."""
 from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
@@ -35,9 +35,9 @@ def _f(info: dict, *keys: str) -> float | None:
 
 
 def fetch_fundamentals(ticker: str, *, use_cache: bool = True) -> dict:
-    """Pull yfinance .info for ticker, cache to JSON, return normalized dict.
+    """Screener.in first (good .NS coverage), yfinance .info fills gaps.
 
-    Cache TTL = 7 days. On miss/expired, refetches from yfinance.
+    Cache TTL = 7 days. Returns normalized dict; always includes `source`.
     """
     safe = ticker.replace(".", "_").replace("/", "_")
     p = CACHE_DIR / f"{safe}.json"
@@ -51,17 +51,30 @@ def fetch_fundamentals(ticker: str, *, use_cache: bool = True) -> dict:
                 return cached
         except Exception:
             pass
-    info = yf.Ticker(ticker).info or {}
-    market_cap = _f(info, "marketCap")
+    try:
+        from src.screener import fetch_ratios
+        scr = fetch_ratios(ticker)
+    except Exception:
+        scr = {}
+    info: dict = {}
+    needs_info = any(scr.get(k) is None for k in
+                     ("market_cap", "total_debt", "total_cash", "enterprise_value", "ebitda"))
+    if needs_info or not scr:
+        try:
+            info = yf.Ticker(ticker).info or {}
+        except Exception:
+            info = {}
+    market_cap = scr.get("market_cap") or _f(info, "marketCap")
     ev = _f(info, "enterpriseValue")
     ebitda = _f(info, "ebitda")
     ebit = _f(info, "ebit") if _f(info, "ebit") is not None else ebitda  # ponytail: use ebitda as proxy when ebit missing
     total_debt = _f(info, "totalDebt")
     total_cash = _f(info, "totalCash")
-    roe = _f(info, "returnOnEquity")
+    roe = scr.get("return_on_equity") or _f(info, "returnOnEquity")
     ey = (ebit / ev) if (ebit is not None and ev not in (None, 0)) else None
     out = {
         "ticker": ticker,
+        "source": "screener.in+yfinance" if scr and info else ("screener.in" if scr else "yfinance"),
         "market_cap": market_cap,
         "enterprise_value": ev,
         "ebitda": ebitda,
@@ -69,12 +82,16 @@ def fetch_fundamentals(ticker: str, *, use_cache: bool = True) -> dict:
         "total_debt": total_debt,
         "total_cash": total_cash,
         "return_on_equity": roe,
+        "roce": scr.get("roce"),
+        "eps_ttm": scr.get("eps_ttm"),
+        "debt_equity": scr.get("debt_equity"),
         "earnings_yield": ey,
-        "pe_trailing": _f(info, "trailingPE"),
+        "pe_trailing": scr.get("pe_trailing") or _f(info, "trailingPE"),
         "pe_forward": _f(info, "forwardPE"),
-        "price_to_book": _f(info, "priceToBook"),
-        "dividend_yield": _f(info, "dividendYield"),
-        "book_value": _f(info, "bookValue"),
+        "price_to_book": scr.get("price_to_book") or _f(info, "priceToBook"),
+        "dividend_yield": scr.get("dividend_yield") if scr.get("dividend_yield") is not None else _f(info, "dividendYield"),
+        "book_value": scr.get("book_value") or _f(info, "bookValue"),
+        "company_name": scr.get("company_name"),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
     }
     try:
