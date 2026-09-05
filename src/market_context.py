@@ -9,10 +9,12 @@ Everything here is FREE, no API keys:
 Never raises — every section degrades to None/[] with the reason kept.
 """
 from __future__ import annotations
+import json
 import re
 import time
 import html as _html
 from datetime import datetime, timezone
+from pathlib import Path
 import pandas as pd
 import requests
 
@@ -22,7 +24,8 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 
 INDICES = {"Nifty 50": "^NSEI", "India VIX": "^INDIAVIX"}
 GLOBAL = {
-    "S&P 500": "^GSPC", "Nasdaq": "^IXIC", "US 10Y": "^TNX",
+    "S&P 500": "^GSPC", "Nasdaq": "^IXIC", "US VIX": "^VIX", "US 10Y": "^TNX",
+    "Nikkei": "^N225", "Hang Seng": "^HSI",
     "USD-INR": "USDINR=X", "Brent Crude": "BZ=F", "Gold": "GC=F",
     "Copper": "HG=F", "Silver": "SI=F",
 }
@@ -132,21 +135,27 @@ def _nifty_regime() -> dict:
 
 
 def _breadth() -> dict:
-    """% of Nifty50 stocks above their 50DMA. Slow first run, then disk-cached."""
+    """% of Nifty50 above 50DMA + advance/decline ratio. Slow first run, then disk-cached."""
     from src.universe import NIFTY50
-    out: dict = {"above_50dma_pct": None, "n": 0}
+    out: dict = {"above_50dma_pct": None, "n": 0, "ad_ratio": None}
     try:
         data = fetch_many(NIFTY50, period="4mo")
-        hit = 0
+        hit, adv, dec = 0, 0, 0
         for df in data.values():
             try:
                 c = df["close"].astype(float)
                 if len(c) >= 50 and c.iloc[-1] > c.rolling(50).mean().iloc[-1]:
                     hit += 1
+                if len(c) >= 2:
+                    if c.iloc[-1] >= c.iloc[-2]:
+                        adv += 1
+                    else:
+                        dec += 1
             except Exception:
                 continue
         if data:
-            out = {"above_50dma_pct": round(hit / len(data) * 100, 1), "n": len(data)}
+            out = {"above_50dma_pct": round(hit / len(data) * 100, 1), "n": len(data),
+                   "ad_ratio": round(adv / max(dec, 1), 2)}
     except Exception as e:
         out["error"] = str(e)[:100]
     return out
@@ -240,6 +249,50 @@ def _news_yf(ticker: str, n: int = 5) -> list[dict]:
         return []
 
 
+ET_RSS = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
+ET_CACHE = Path("data/cache/et_rss.json")
+ET_TTL_HOURS = 1
+
+
+def get_market_news(n: int = 8) -> dict:
+    """ET Markets front-page headlines + tone. 1h disk cache. {items, source}."""
+    try:
+        if ET_CACHE.exists():
+            cached = json.loads(ET_CACHE.read_text())
+            ts = datetime.fromisoformat(cached.get("fetched_at", "1970-01-01T00:00:00+00:00"))
+            age_h = (datetime.now(timezone.utc) - ts).total_seconds() / 3600
+            if age_h < ET_TTL_HOURS and cached.get("items"):
+                return {"items": cached["items"][:n], "source": "Economic Times"}
+    except Exception:
+        pass
+    try:
+        r = requests.get(ET_RSS, headers=UA, timeout=20)
+        if r.status_code != 200:
+            return {"items": [], "source": "none"}
+        items = re.findall(r"<item>(.*?)</item>", r.text, re.DOTALL)[:n]
+        out = []
+        for it in items:
+            def tag(name: str) -> str:
+                m = re.search(rf"<{name}>(.*?)</{name}>", it, re.DOTALL)
+                return _html.unescape(m.group(1).strip()) if m else ""
+            title = tag("title")[:160]
+            if not title or title.lower().startswith("et "):
+                continue
+            out.append({"title": title, "source": "ET Markets",
+                        "time": tag("pubDate")[:16], "link": tag("link"),
+                        "tone": tone_of_title(title)})
+        if out:
+            try:
+                ET_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                ET_CACHE.write_text(json.dumps(
+                    {"items": out, "fetched_at": datetime.now(timezone.utc).isoformat()}))
+            except Exception:
+                pass
+        return {"items": out, "source": "Economic Times" if out else "none"}
+    except Exception:
+        return {"items": [], "source": "none"}
+
+
 def get_news(ticker: str, n: int = 5) -> dict:
     """Google News IN first, yfinance fallback. Returns {items, source}."""
     name = _company_name(ticker)
@@ -262,10 +315,18 @@ def get_context(ticker: str) -> dict:
         vix = idx.get("India VIX", {})
         regime = snap.get("regime", {})
         breadth = snap.get("breadth", {})
+        try:
+            from src.flows import five_day_sums
+            flows = five_day_sums()
+        except Exception:
+            flows = {}
         ctx["market"] = {
             "nifty": nifty.get("price"), "nifty_day_pct": nifty.get("day_pct"),
             "nifty_trend": regime.get("trend"), "nifty_month_pct": regime.get("month_pct"),
             "breadth_pct": breadth.get("above_50dma_pct"),
+            "ad_ratio": breadth.get("ad_ratio"),
+            "fii_5d_cr": flows.get("fii_5d_cr"), "dii_5d_cr": flows.get("dii_5d_cr"),
+            "flows_as_of": flows.get("as_of", ""),
             "vix": vix.get("price"), "vix_state": vix_label(vix.get("price")),
             "as_of": nifty.get("as_of", ""),
         }
@@ -281,6 +342,7 @@ def get_context(ticker: str) -> dict:
             g = ctx["global"][comm_name]
             ctx["commodity"] = {"name": comm_name, **g}
         ctx["news"] = get_news(ticker)
+        ctx["market_news"] = get_market_news()
 
         c: list[str] = []
         if ctx["market"].get("vix_state") in ("elevated", "fear"):
@@ -293,6 +355,12 @@ def get_context(ticker: str) -> dict:
         tones = [a["tone"] for a in ctx["news"].get("items", [])]
         if len(tones) >= 3 and tones.count("negative") > tones.count("positive") + 1:
             c.append("Fresh headlines skew negative — check news before entering.")
+        fii = ctx["market"].get("fii_5d_cr")
+        if fii is not None and fii <= -8000:
+            c.append(f"FIIs sold ₹{abs(fii):,.0f} Cr in 5 sessions — institutional headwind.")
+        ad = ctx["market"].get("ad_ratio")
+        if ad is not None and ad <= 0.7:
+            c.append(f"Advance-decline {ad:.2f} — broader market falling, be selective.")
         ctx["cautions"] = c
         m = ctx["market"]
         parts = []
@@ -307,6 +375,8 @@ def get_context(ticker: str) -> dict:
             parts.append(f"{sec['name']} sector {sec['day_pct']:+.1f}% today")
         if ctx["market"].get("breadth_pct") is not None:
             parts.append(f"breadth {ctx['market']['breadth_pct']:.0f}% above 50DMA")
+        if ctx["market"].get("fii_5d_cr") is not None:
+            parts.append(f"FII 5d ₹{ctx['market']['fii_5d_cr']:+,.0f} Cr")
         ctx["summary"] = " · ".join(parts)
     except Exception as e:  # noqa: BLE001 — context must never break the verdict
         ctx["error"] = str(e)[:120]
@@ -327,6 +397,7 @@ def macro_overlay(ticker: str, ctx: dict, atr_pct: float | None = None) -> dict:
     g = ctx.get("global", {}) or {}
     sec = ctx.get("sector", {}) or {}
     tones = [a.get("tone") for a in (ctx.get("news", {}) or {}).get("items", [])]
+    mtones = [a.get("tone") for a in (ctx.get("market_news", {}) or {}).get("items", [])]
     score = 0.0
     reasons: list[str] = []
 
@@ -347,15 +418,32 @@ def macro_overlay(ticker: str, ctx: dict, atr_pct: float | None = None) -> dict:
     b = m.get("breadth_pct")
     if b is not None:
         add(4 if b >= 60 else (-4 if b <= 40 else 0), f"breadth {b:.0f}% above 50DMA")
+    ad = m.get("ad_ratio")
+    if ad is not None:
+        add(3 if ad >= 1.4 else (-3 if ad <= 0.7 else 0), f"advance-decline {ad:.2f}")
+    fii = m.get("fii_5d_cr")
+    if fii is not None:
+        add(_clamp(round(fii / 2500), -4, 4), f"FII 5d ₹{fii:+,.0f} Cr")
+        dii = m.get("dii_5d_cr")
+        if dii is not None and dii > 10000:
+            add(1, f"DII cushion ₹{dii:+,.0f} Cr")
     sv = sec.get("month_vs_nifty")
     if sv is not None:
         add(_clamp(round(sv / 2), -4, 4), f"{sec.get('name', 'sector')} {sv:+.1f}% vs Nifty (1M)")
     sp = (g.get("S&P 500") or {}).get("day_pct")
     if sp is not None:
-        add(_clamp(round(sp * 2), -4, 4), f"US overnight {sp:+.1f}%")
+        add(_clamp(round(sp * 2), -3, 3), f"US overnight {sp:+.1f}%")
+    asia = [v for k in ("Nikkei", "Hang Seng") if isinstance((g.get(k) or {}).get("day_pct"), (int, float))
+            for v in [(g[k]["day_pct"])]]
+    if asia:
+        avg = sum(asia) / len(asia)
+        add(_clamp(round(avg * 2), -3, 3), f"Asia {avg:+.1f}% this morning")
     if len(tones) >= 3:
         net = tones.count("positive") - tones.count("negative")
-        add(_clamp(net * 2, -4, 4), f"news tone net {net:+d}")
+        add(_clamp(net * 2, -4, 4), f"{ctx.get('ticker', '')} news tone net {net:+d}")
+    if len(mtones) >= 3:
+        mnet = mtones.count("positive") - mtones.count("negative")
+        add(_clamp(mnet, -3, 3), f"market news tone net {mnet:+d}")
 
     score = _clamp(round(score), -30, 30)
 

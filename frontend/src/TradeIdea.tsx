@@ -287,6 +287,26 @@ export default function TradeIdea({ onTrade }: { onTrade: (ticker: string, side:
 
             <div className="flex flex-wrap gap-1.5">
               <WxChip label="VIX" value={context.market.vix} suffix={` ${context.market.vix_state ?? ""}`} invert />
+              {context.market.fii_5d_cr != null && (
+                <span
+                  title={`DII 5d ₹${(context.market.dii_5d_cr ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })} Cr`}
+                  className={`text-[11px] px-2 py-1 rounded-md border font-mono ${
+                    context.market.fii_5d_cr >= 0
+                      ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
+                      : "text-rose-400 border-rose-500/30 bg-rose-500/5"
+                  }`}
+                >
+                  FII 5d {context.market.fii_5d_cr >= 0 ? "+" : ""}₹{(context.market.fii_5d_cr / 1000).toFixed(1)}k Cr
+                </span>
+              )}
+              {context.market.ad_ratio != null && (
+                <span
+                  title="Advance-decline ratio (Nifty 50 today)"
+                  className="text-[11px] px-2 py-1 rounded-md border border-border/50 font-mono text-muted-foreground"
+                >
+                  A/D {context.market.ad_ratio.toFixed(2)}
+                </span>
+              )}
               {Object.entries(context.global).map(([name, g]) =>
                 g.day_pct != null ? (
                   <WxChip key={name} label={name} value={g.day_pct} suffix="%" signed />
@@ -312,45 +332,55 @@ export default function TradeIdea({ onTrade }: { onTrade: (ticker: string, side:
             )}
 
             {context.news.items.length > 0 && (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
-                  <Newspaper className="h-3.5 w-3.5" />
-                  Fresh headlines · {context.news.source}
-                </div>
-                {context.news.items.map((a, i) => (
-                  <a
-                    key={i}
-                    href={a.link || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-start gap-2 text-xs p-2 rounded-lg border border-border/40 hover:bg-muted/30 transition-colors"
-                  >
-                    <span
-                      title={`tone: ${a.tone}`}
-                      className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
-                        a.tone === "positive"
-                          ? "bg-emerald-500"
-                          : a.tone === "negative"
-                          ? "bg-rose-500"
-                          : "bg-muted-foreground/40"
-                      }`}
-                    />
-                    <span className="flex-1">
-                      <span className="text-foreground/90">{a.title}</span>
-                      <span className="text-muted-foreground">
-                        {" "}
-                        — {a.source}
-                        {a.time ? ` · ${a.time}` : ""}
-                      </span>
-                    </span>
-                    {a.link && <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />}
-                  </a>
-                ))}
-              </div>
+              <NewsList title="Fresh headlines" source={context.news.source} items={context.news.items} />
+            )}
+
+            {context.market_news && context.market_news.items.length > 0 && (
+              <NewsList title="Market headlines" source={context.market_news.source} items={context.market_news.items} />
             )}
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+function NewsList({ title, source, items }: { title: string; source: string; items: { title: string; source: string; time: string; link: string; tone: string }[] }) {
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+        <Newspaper className="h-3.5 w-3.5" />
+        {title} · {source}
+      </div>
+      {items.map((a, i) => (
+        <a
+          key={i}
+          href={a.link || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-start gap-2 text-xs p-2 rounded-lg border border-border/40 hover:bg-muted/30 transition-colors"
+        >
+          <span
+            title={`tone: ${a.tone}`}
+            className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
+              a.tone === "positive"
+                ? "bg-emerald-500"
+                : a.tone === "negative"
+                ? "bg-rose-500"
+                : "bg-muted-foreground/40"
+            }`}
+          />
+          <span className="flex-1">
+            <span className="text-foreground/90">{a.title}</span>
+            <span className="text-muted-foreground">
+              {" "}
+              — {a.source}
+              {a.time ? ` · ${a.time}` : ""}
+            </span>
+          </span>
+          {a.link && <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />}
+        </a>
+      ))}
     </div>
   )
 }

@@ -363,6 +363,49 @@ export async function fetchTickerNews(ticker: string, limit = 5): Promise<{ tick
   return r.json()
 }
 
+export interface LiveMacro {
+  fetched_at: string
+  nse_sectors: { name: string; last: number; pct_change: number; change: number; open: number; high: number; low: number; prev_close: number; symbol: string }[]
+  google_news_india: NewsItem[]
+  google_news_global: NewsItem[]
+  fii_dii: { date?: string; fii?: { buy: number; sell: number; net: number }; dii?: { buy: number; sell: number; net: number } }
+}
+
+export interface NewsItem {
+  title: string
+  link: string
+  published: string
+  source: string
+  origin?: string
+  body?: string
+  user?: string
+  sentiment?: string
+}
+
+export async function fetchLiveMacro(): Promise<LiveMacro> {
+  const r = await fetch(`${API}/api/macro/live`)
+  if (!r.ok) throw new Error("failed to fetch live macro")
+  return r.json()
+}
+
+export async function fetchNewsAggregate(ticker: string, limit = 5): Promise<{
+  ticker: string
+  yfinance: NewsItem[]
+  google_news: NewsItem[]
+  stocktwits: { messages: NewsItem[]; sentiment: { bullish: number; bearish: number }; total: number }
+  fetched_at: string
+}> {
+  const r = await fetch(`${API}/api/macro/news-aggregate/${encodeURIComponent(ticker)}?limit=${limit}`)
+  if (!r.ok) throw new Error("failed to fetch news aggregate")
+  return r.json()
+}
+
+export async function fetchSentiment(ticker: string): Promise<{ messages: NewsItem[]; sentiment: { bullish: number; bearish: number }; total: number }> {
+  const r = await fetch(`${API}/api/macro/sentiment/${encodeURIComponent(ticker)}`)
+  if (!r.ok) return { messages: [], sentiment: { bullish: 0, bearish: 0 }, total: 0 }
+  return r.json()
+}
+
 export async function aiExplainStrategy(strategy_id: string, metrics: any, user_question = ""): Promise<{ text: string; ai_enabled: boolean }> {
   const r = await fetch(`${API}/api/ai/explain-strategy`, {
     method: "POST",
@@ -395,6 +438,11 @@ export interface MarketContext {
     nifty_day_pct?: number
     nifty_trend?: string
     nifty_month_pct?: number
+    breadth_pct?: number
+    ad_ratio?: number
+    fii_5d_cr?: number
+    dii_5d_cr?: number
+    flows_as_of?: string
     vix?: number
     vix_state?: string
     as_of?: string
@@ -403,6 +451,7 @@ export interface MarketContext {
   sector: { name?: string; day_pct?: number; month_vs_nifty?: number }
   commodity: { name?: string; price?: number; day_pct?: number }
   news: { items: NewsItem[]; source: string }
+  market_news: { items: NewsItem[]; source: string }
   cautions: string[]
   summary: string
 }

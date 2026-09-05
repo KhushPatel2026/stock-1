@@ -27,7 +27,8 @@ def test_vix_buckets():
 
 def test_context_shape_never_raises():
     ctx = get_context("RELIANCE.NS")
-    for key in ("ticker", "market", "global", "sector", "commodity", "news", "cautions", "summary"):
+    for key in ("ticker", "market", "global", "sector", "commodity", "news",
+                "market_news", "cautions", "summary"):
         assert key in ctx
     assert isinstance(ctx["cautions"], list)
     assert isinstance(ctx["news"].get("items", []), list)
@@ -69,3 +70,28 @@ def test_overlay_empty_context_scores_zero():
     ov = macro_overlay("T.NS", {})
     assert ov["score"] == 0
     assert ov["sizing_pct"] == 1.0
+
+
+def test_overlay_fii_selling_penalizes():
+    base = _ctx()
+    before = macro_overlay("T.NS", base)["score"]
+    ctx = _ctx()
+    ctx["market"] = {**ctx["market"], "fii_5d_cr": -12000.0, "dii_5d_cr": 4000.0}
+    after = macro_overlay("T.NS", ctx)["score"]
+    assert after < before
+    assert any("FII" in r for r in macro_overlay("T.NS", ctx)["reasons"])
+
+
+def test_overlay_market_news_counts():
+    ctx = _ctx(tones=[])
+    ctx["market_news"] = {"items": [{"tone": "negative"}] * 4 + [{"tone": "neutral"}]}
+    ov = macro_overlay("T.NS", ctx)
+    assert any("market news" in r for r in ov["reasons"])
+
+
+def test_flows_shape():
+    from src.flows import five_day_sums
+    s = five_day_sums([{"date": "04-Sep-2026", "fii_net_cr": -100.0, "dii_net_cr": 200.0}] * 4)
+    assert s["fii_5d_cr"] == -400.0 and s["dii_5d_cr"] == 800.0
+    assert five_day_sums([]) == {}
+    assert five_day_sums([{"date": "x", "fii_net_cr": 1.0, "dii_net_cr": 1.0}]) == {}

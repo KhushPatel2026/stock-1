@@ -1,6 +1,28 @@
 # Changelog — Keep a Changelog, SemVer
 
 ## [Unreleased]
+
+## [v1.1.4] — 2026-09-05
+### Added
+- **Real-time scrapers** (src/scrapers.py, 443 lines):
+  - Google News RSS — no API key, real-time headlines per ticker
+  - NSE India official — live sector indices via /api/allIndices (21 sectors)
+  - NSE FII/DII flows — /api/fiidiiTradeVol (when NSE doesn't rate-limit)
+  - StockTwits sentiment — retail bullish/bearish counts + messages
+  - MoneyControl — Indian news aggregation
+  - Investing.com — commodities + FX real-time
+  - 60-second in-memory cache to avoid hammering NSE
+- New endpoints:
+  - GET /api/macro/live — NSE live sectors + India news + FII/DII in one call
+  - GET /api/macro/news-aggregate/{ticker} — yfinance + Google News + StockTwits
+  - GET /api/macro/sentiment/{ticker} — StockTwits sentiment
+- MacroPanel UI — live badge with pulsing indicator, NSE sector cards (live data),
+  multi-source news with sentiment bar chart (bullish/bearish percentage)
+- News cards — publisher, sentiment badge (Bullish/Bearish), clickable links
+
+### Tests
+- 224 pass (was 195)
+- 21 new scraper tests (mocked HTTP)
 ### Fixed — wrong-price data bug (critical) + live prices + uniform cards
 - Root cause: yfinance frames were trusted blindly — crossed/multi-ticker responses
   under parallel load silently put one ticker's price on another's card (INFY showed
@@ -35,6 +57,27 @@
   card: summary line, chips, amber cautions (VIX fear, Nifty downtrend, weak US open,
   negative news skew), clickable headlines. Votes untouched — context informs, never
   silently changes the verdict.
+### Changed — macro now votes (transparent overlay)
+- `macro_overlay()` in `src/market_context.py`: weather becomes a ±30 score with written
+  reasons (Nifty trend ±8, month ±6, VIX +2/0/−6/−12, breadth ±4, sector vs Nifty ±4,
+  US overnight ±4, news tone ±4) + position sizing (1% normal, 0.5% elevated/volatile,
+  0.25% fear). Market snapshot cached 20 min and shared across tickers.
+- `/api/decisions`: final = vote + macro; same thresholds, so macro can flip weak calls.
+  Confidence capped at 65 when macro opposes the vote, 60 in VIX fear. Response adds
+  `base_score` + `macro{score,reasons,sizing_pct,sizing_note,capped}`; insight carries
+  the macro sentence. Live proof: RELIANCE base 21.2 → macro −3 → final 18.2, BUY kept,
+  confidence capped 65 with reasons shown.
+- Trade Idea card: "Market says go/wait" breakdown (vote → macro → final), reason list,
+  size note, capped badge. Backtest consensus cards inherit the macro-adjusted decision.
+### Added — macro sources, next level (all free, no keys)
+- `src/flows.py`: Moneycontrol FII/DII daily table (FII net, DII net, Rs Cr), 12h disk
+  cache, {} on failure. Live: FII 5d +₹2,374 Cr, DII cushion +₹18,568 Cr.
+- Asia + US VIX via verified yfinance layer (Nikkei, Hang Seng, ^VIX); advance-decline
+  ratio from the breadth fetch; ET Markets RSS front page (1h cache) for market-wide tone.
+- Overlay terms added: FII 5d ±4 (+1 DII cushion), Asia ±3, A/D ±3, market-news ±3
+  (US term ±3 to keep budget); still clamped ±30 with every point explained.
+- Weather card: FII 5d chip (hover shows DII), A/D chip, market-headlines section.
+  Live proof (CANBK): base 30.1 → macro −1 across 9 reasons → BUY kept, conf capped 65.
 
 ## [v1.1.0] — 2026-09-05
 ### Added

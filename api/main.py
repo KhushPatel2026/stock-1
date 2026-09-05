@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import requests
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -23,6 +24,9 @@ from src.paper_engine import run_rebalance, daily_report, get_latest_prices
 from src.signals import compute_signals
 from src.upstox import UpstoxClient
 from src.macro import fetch_all as fetch_macro_all, regime_summary as macro_regime, news_for_ticker
+from src.scrapers import (
+    google_news, nse_sector_indices, nse_fii_dii, stocktwits_symbol_sentiment, all_news_for_ticker,
+)
 
 app = FastAPI(title="stock-1 API", version="1.0.0")
 
@@ -494,6 +498,34 @@ def macro_news(ticker: str, limit: int = 5) -> dict:
     """Recent news headlines for a ticker via yfinance."""
     items = news_for_ticker(ticker, limit=limit)
     return {"ticker": ticker, "news": items}
+
+
+@app.get("/api/macro/live")
+def macro_live() -> dict:
+    """Real-time macro from multiple scrapers:
+    - Google News (top headlines for India market)
+    - NSE sector indices (live)
+    - NSE FII/DII flows
+    """
+    out: dict = {"fetched_at": datetime.now(timezone.utc).isoformat()}
+    out["nse_sectors"] = nse_sector_indices()
+    out["google_news_india"] = google_news("Nifty 50 India stock market", limit=8)
+    out["google_news_global"] = google_news("global markets Federal Reserve", limit=5)
+    out["fii_dii"] = nse_fii_dii()
+    return out
+
+
+@app.get("/api/macro/news-aggregate/{ticker}")
+def macro_news_aggregate(ticker: str, limit: int = 5) -> dict:
+    """Aggregate news from yfinance + Google News + StockTwits for a ticker."""
+    out = all_news_for_ticker(ticker, limit_per_source=limit)
+    return out
+
+
+@app.get("/api/macro/sentiment/{ticker}")
+def macro_sentiment(ticker: str) -> dict:
+    """Retail sentiment for a ticker via StockTwits (when available)."""
+    return stocktwits_symbol_sentiment(ticker, limit=30)
 
 
 @app.get("/api/upstox/server-info")
