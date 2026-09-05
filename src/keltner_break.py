@@ -6,7 +6,7 @@ from src.indicators import atr
 META = {
     "name": "Keltner Channel Breakout",
     "family": "Trend",
-    "params": {"ema_n": 20, "atr_n": 14, "k": 2.0, "top_n": 5, "cost": 0.001},
+    "params": {"ema_n": 20, "atr_n": 14, "k": 2.0, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long when close breaks above EMA(N) + k*ATR; exit when close drops below EMA(N).",
 }
 
@@ -21,9 +21,9 @@ def _exit(df: pd.DataFrame, ema_n: int) -> pd.Series:
     ema = close.ewm(span=ema_n, adjust=False).mean()
     return close < ema
 
-def backtest(data: dict, ema_n=20, atr_n=14, k=2.0, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, ema_n=20, atr_n=14, k=2.0, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

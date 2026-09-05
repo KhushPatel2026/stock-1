@@ -5,7 +5,7 @@ from src.indicators import atr
 META = {
     "name": "Volatility Breakout",
     "family": "Volatility",
-    "params": {"k": 1.0, "atr_n": 14, "cost": 0.0005},
+    "params": {"k": 1.0, "atr_n": 14, "cost": 0.0005, "capital": 1_000_000},
     "description": "Long when (close - prev_close) > k * ATR(14); exit next bar (one-day hold).",
 }
 
@@ -14,9 +14,9 @@ def _signal(df: pd.DataFrame, k: float, atr_n: int) -> pd.Series:
     move = df["close"] - df["close"].shift(1)
     return move > k * a
 
-def backtest(data: dict, k=1.0, atr_n=14, cost=0.0005) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, k=1.0, atr_n=14, cost=0.0005, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

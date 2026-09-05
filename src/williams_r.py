@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Williams %R",
     "family": "MR",
-    "params": {"n": 14, "oversold": -80, "exit_level": -50, "top_n": 5, "cost": 0.001},
+    "params": {"n": 14, "oversold": -80, "exit_level": -50, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long when %R < -80; exit when %R > -50.",
 }
 
@@ -14,9 +14,9 @@ def _williams_r(close: pd.Series, high: pd.Series, low: pd.Series, n: int) -> pd
     ll = low.rolling(n).min()
     return (hh - close) / (hh - ll).replace(0, np.nan) * -100
 
-def backtest(data: dict, n=14, oversold=-80, exit_level=-50, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, n=14, oversold=-80, exit_level=-50, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

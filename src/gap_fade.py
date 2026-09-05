@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int = 20) -> tuple[list[dict], pd.DataFrame]:
+def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int = 20, capital: float = 1_000_000) -> tuple[list[dict], pd.DataFrame]:
     # use equal-weight Nifty proxy as single series to fade: average gap across universe
     tickers=list(data.keys())
     if not tickers:
@@ -11,7 +11,7 @@ def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int
     all_dates=sorted(set().union(*(set(df.index) for df in data.values())))
     # build per-ticker gap_z
     trades=[]
-    cash=1_000_000
+    cash=capital
     holdings={}  # ticker -> (shares, entry_price, expiry)
     equity_curve=[]
     # precompute gap_z per ticker
@@ -48,7 +48,7 @@ def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int
             direction=-1 if z>0 else 1
             price=float(data[t].loc[d,"open"]) if "open" in data[t].columns else float(data[t].loc[d,"close"])
             # size 2% per trade
-            notional=1_000_000*0.02
+            notional=capital*0.02
             shares=int(notional//price)
             if shares==0: continue
             # for long, deduct cash; for short, receive cash (simplify: margin 50%)
@@ -81,6 +81,6 @@ def backtest(data: dict[str, pd.DataFrame], thresh: float = 2.0, gap_window: int
 META = {
     "name": "Gap-Fade Mean Reversion",
     "family": "MR",
-    "params": {"thresh": 1.5},
+    "params": {"thresh": 1.5, "capital": 1_000_000},
     "description": "Open vs prev close gap > N sigma, fade intraday mean-reversion.",
 }

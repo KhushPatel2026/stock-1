@@ -87,7 +87,7 @@ python3 -c "from src.dividend_carry import backtest; print(backtest(d)[1].tail()
 - **Risk Parity:** `src/risk_parity.py` — inverse-vol weighting, monthly selection + daily rebalance
 - **Dividend Carry:** `src/dividend_carry.py` — top-quartile yield, monthly rebalance (static yield map)
 
-**Total now: 56 strategies across 16 families, 102 tests pass.**
+**Total now: 65 strategies across 17 families, 129 tests pass.**
 
 ## Validation
 

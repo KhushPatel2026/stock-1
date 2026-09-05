@@ -237,6 +237,28 @@ _STRATEGY_SIGNAL_FN: dict[str, "callable"] = {
     "overnight_drift": _sig_always_flat,
     # Pairs (pair-level signal, not single-name)
     "pairs_trading": _sig_always_flat,
+    "distance_pairs": _sig_always_flat,
+    # Frontier batch — cross-sectional ranks handled by backtest
+    "xs_momentum": _sig_always_long,
+    "st_reversal": _sig_always_long,
+    "lt_reversal": _sig_always_long,
+    "bab": _sig_always_long,
+    "vol_managed": _sig_always_long,
+    "chandelier": _sig_trend_breakout,
+    "turn_of_month": _sig_always_flat,
+    "expiry_drift": _sig_always_flat,
+    # Institutional Global Alphas
+    "fama_french": _sig_always_long,
+    "piotroski_f": _sig_always_long,
+    "accrual_anomaly": _sig_always_long,
+    "tsmom": _sig_trend_filter,
+    "pca_stat_arb": _sig_mr_oversold,
+    "kalman_pairs": _sig_always_flat,
+    "johansen_basket": _sig_always_flat,
+    "lead_lag": _sig_trend_filter,
+    "vrp": _sig_always_long,
+    "macro_roro": _sig_trend_filter,
+    "almgren_chriss": _sig_always_long,
 }
 
 

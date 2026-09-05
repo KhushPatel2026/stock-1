@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Accumulation/Distribution Line",
     "family": "Volume",
-    "params": {"ad_n": 20, "sma_n": 50, "max_holdings": 5, "cost": 0.001},
+    "params": {"ad_n": 20, "sma_n": 50, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "A/D = cumsum(MFM * volume); long when A/D > SMA(A/D,20) and close > SMA(close,50).",
 }
 
@@ -23,9 +23,9 @@ def _signal(df: pd.DataFrame, ad_n: int, sma_n: int) -> tuple[pd.Series, pd.Seri
     exit_ = (ad < ad_sma) | (df["close"] < sma)
     return entry, exit_
 
-def backtest(data: dict, ad_n=20, sma_n=50, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, ad_n=20, sma_n=50, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

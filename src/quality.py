@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "quality",
     "family": "Factor",
-    "params": {"top_decile": 0.2, "cost": 0.001},
+    "params": {"top_decile": 0.2, "cost": 0.001, "capital": 1_000_000},
     "description": "Long top decile by 12M return / 60d realized vol, equal-weight, monthly rebalance.",
 }
 
@@ -27,7 +27,7 @@ def _rank_at(data: dict, date) -> pd.DataFrame:
         return pd.DataFrame()
     return pd.DataFrame(rows).sort_values("score", ascending=False)
 
-def backtest(data: dict, top_decile=0.2, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, top_decile=0.2, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique()
     month_ends = []
@@ -35,7 +35,7 @@ def backtest(data: dict, top_decile=0.2, cost=0.001) -> tuple[list, pd.DataFrame
         ds = [d for d in all_dates if pd.Period(d, freq="M") == p]
         if ds:
             month_ends.append(max(ds))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

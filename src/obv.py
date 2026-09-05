@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "OBV Trend",
     "family": "Volume",
-    "params": {"obv_n": 20, "sma_n": 50, "max_holdings": 5, "cost": 0.001},
+    "params": {"obv_n": 20, "sma_n": 50, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long when OBV > SMA(OBV,20) and close > SMA(close,50); exit when either fails.",
 }
 
@@ -22,9 +22,9 @@ def _signal(df: pd.DataFrame, obv_n: int, sma_n: int) -> tuple[pd.Series, pd.Ser
     exit_ = (obv < obv_sma) | (df["close"] < sma)
     return entry, exit_
 
-def backtest(data: dict, obv_n=20, sma_n=50, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, obv_n=20, sma_n=50, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

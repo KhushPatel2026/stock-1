@@ -2,6 +2,50 @@
 
 ## [Unreleased]
 
+## [v1.1.0] — 2026-09-05
+### Added
+- **Upstox Analytics integration** (`src/upstox.py`):
+  - `POST /api/upstox/token` — store access token
+  - `GET /api/portfolio` — fetch real Upstox holdings + P&L enriched with live yfinance prices
+  - `GET /api/upstox/option-chain` — option chain with greeks
+  - `GET /api/upstox/india-vix` — India VIX
+  - `GET /api/upstox/pcr` — Put-Call Ratio
+  - `GET /api/upstox/server-info` — returns your public IP for Upstox whitelist
+- **Portfolio tab** — paste Upstox token, view holdings + P&L + concentration risk + India VIX + AI suggestions
+- **AI Insights tab** (Gemini Flash Lite via `src/ai.py`):
+  - Personalized next-steps based on your strategy usage
+  - Ask about any strategy in plain English
+  - Analyze my portfolio — Gemini reviews your actual holdings
+- **SQLite paper trading** (`src/paper.py`) — multi-portfolio support, full history persisted in `data/paper.db`
+- **Strategy selection tracking** (`src/tracking.py`) — logs every strategy run for personalization
+- **Frontier strategies** — 33 more registered (xs_momentum, BAB, distance_pairs, vol_managed, chandelier, turn_of_month, expiry_drift, accrual_anomaly, almgren_chriss, ...) — total now 89
+- **Capital parameter** on `/api/backtest` — replaces fixed 1M
+- **Public IP** in `/api/upstox/server-info` for Upstox whitelist
+- **Cross-tab navigation** — Signals → Paper, Library → Backtest
+- **Dark/light theme toggle**
+
+### Tests
+- 164 pass (was 102)
+- New: paper SQLite, upstox client, AI explanations, tracking, capital scaling, frontier strategies
+
+## [Unreleased]
+### Changed — dynamic capital everywhere (no more static ₹10L)
+- All 89 registered strategies now accept `capital` (default 1_000_000, fully dynamic):
+  every `backtest()` signature + all cash/sizing internals + `META["params"]`
+- `run_backtest(..., capital=...)` — injected only into fns that accept it (inspect-based),
+  replacing the old try/except-TypeError fallback that silently dropped ALL params on mismatch
+- `POST /api/backtest` accepts top-level `capital` field (validated > 0); also passable via `params`
+- `tests/test_capital.py` — proves every strategy starts at given capital and PnL scales with it
+- Only remaining 1M literals: defaults, META defaults, paper-broker DB default (param), CLI defaults (args)
+### Added — FEAT-011 Frontier batch (9 strategies, new Seasonal family)
+- `src/xsection.py` — xs_momentum (12-1 Jegadeesh-Titman), st_reversal (1M fade), lt_reversal (2Y fade); one loop, three scores
+- `src/bab.py` — betting-against-beta (Frazzini-Pedersen lite, legs scaled to beta 1; reuses `rolling_beta`)
+- `src/distance_pairs.py` — Gatev min-SSD pair (no cointegration test), z-score traded
+- `src/vol_managed.py` — Moreira-Muir 15% vol-target scaling (no leverage)
+- `src/chandelier.py` — Donchian entry + ATR trailing-stop exit
+- `src/seasonal.py` — turn_of_month + expiry_drift (Thursday/NSE expiry)
+- Registry: 56 → 65 strategies, 17 families; signals mapped; 10 new tests (`tests/test_frontier.py`)
+
 ## [v1.0.0] — 2026-09-05
 ### Added — v1.0.0 milestones all shipped
 - **FEAT-007 Validation layer** (`src/validation.py`)

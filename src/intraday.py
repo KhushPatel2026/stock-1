@@ -66,7 +66,7 @@ def _run_loop(
 META_ORB = {
     "name": "Opening Range Breakout",
     "family": "Intraday",
-    "params": {"lookback_bars": 6, "top_n": 1, "cost": 0.0005},
+    "params": {"capital": 1_000_000, "lookback_bars": 6, "top_n": 1, "cost": 0.0005},
     "description": "Long when close > opening-range high; square off at EOD. Single-name 60m.",
 }
 
@@ -80,12 +80,12 @@ def _orb_signals(df: pd.DataFrame, lookback_bars: int) -> tuple[pd.Series, pd.Se
     return entry, is_last
 
 
-def backtest_orb(data: dict, lookback_bars: int = 6, top_n: int = 1, cost: float = 0.0005) -> tuple[list, pd.DataFrame]:
+def backtest_orb(data: dict, lookback_bars: int = 6, top_n: int = 1, cost: float = 0.0005, capital: float = 1_000_000) -> tuple[list, pd.DataFrame]:
     entry_sig, exit_sig = {}, {}
     for t, df in data.items():
         e, x = _orb_signals(df, lookback_bars)
         entry_sig[t], exit_sig[t] = e, x
-    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost)
+    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost, capital=capital)
 
 
 # ---------- 2. VWAP Reversion ----------
@@ -93,7 +93,7 @@ def backtest_orb(data: dict, lookback_bars: int = 6, top_n: int = 1, cost: float
 META_VWAP = {
     "name": "VWAP Reversion",
     "family": "Intraday",
-    "params": {"std_mult": 1.5, "top_n": 1, "cost": 0.0005},
+    "params": {"capital": 1_000_000, "std_mult": 1.5, "top_n": 1, "cost": 0.0005},
     "description": "Long when close < VWAP - std_mult * std(close-VWAP) (today). Exit at VWAP; square off at EOD.",
 }
 
@@ -116,12 +116,12 @@ def _vwap_signals(df: pd.DataFrame, std_mult: float) -> tuple[pd.Series, pd.Seri
     return entry, exit_
 
 
-def backtest_vwap(data: dict, std_mult: float = 1.5, top_n: int = 1, cost: float = 0.0005) -> tuple[list, pd.DataFrame]:
+def backtest_vwap(data: dict, std_mult: float = 1.5, top_n: int = 1, cost: float = 0.0005, capital: float = 1_000_000) -> tuple[list, pd.DataFrame]:
     entry_sig, exit_sig = {}, {}
     for t, df in data.items():
         e, x = _vwap_signals(df, std_mult)
         entry_sig[t], exit_sig[t] = e, x
-    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost)
+    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost, capital=capital)
 
 
 # ---------- 3. Intraday Momentum ----------
@@ -129,7 +129,7 @@ def backtest_vwap(data: dict, std_mult: float = 1.5, top_n: int = 1, cost: float
 META_MOM = {
     "name": "Intraday Momentum",
     "family": "Intraday",
-    "params": {"sma_bars": 20, "vol_mult": 1.2, "top_n": 1, "cost": 0.0005},
+    "params": {"capital": 1_000_000, "sma_bars": 20, "vol_mult": 1.2, "top_n": 1, "cost": 0.0005},
     "description": "Long when close > SMA(close, sma_bars) AND volume > vol_mult * SMA(volume, sma_bars). Exit at EOD.",
 }
 
@@ -142,12 +142,12 @@ def _mom_signals(df: pd.DataFrame, sma_bars: int, vol_mult: float) -> tuple[pd.S
     return entry, is_last
 
 
-def backtest_mom(data: dict, sma_bars: int = 20, vol_mult: float = 1.2, top_n: int = 1, cost: float = 0.0005) -> tuple[list, pd.DataFrame]:
+def backtest_mom(data: dict, sma_bars: int = 20, vol_mult: float = 1.2, top_n: int = 1, cost: float = 0.0005, capital: float = 1_000_000) -> tuple[list, pd.DataFrame]:
     entry_sig, exit_sig = {}, {}
     for t, df in data.items():
         e, x = _mom_signals(df, sma_bars, vol_mult)
         entry_sig[t], exit_sig[t] = e, x
-    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost)
+    return _run_loop(data, entry_sig, exit_sig, top_n=top_n, cost=cost, capital=capital)
 
 
 # ---------- 4. Overnight Drift (daily bars) ----------
@@ -155,14 +155,14 @@ def backtest_mom(data: dict, sma_bars: int = 20, vol_mult: float = 1.2, top_n: i
 META_OVERNIGHT = {
     "name": "Overnight Drift (Close-to-Open)",
     "family": "Intraday",
-    "params": {"top_n": 1, "cost": 0.0005},
+    "params": {"capital": 1_000_000, "top_n": 1, "cost": 0.0005},
     "description": "Buy at today's close when close > yesterday's close; sell at tomorrow's open.",
 }
 
 
-def backtest_overnight(data: dict, top_n: int = 1, cost: float = 0.0005) -> tuple[list, pd.DataFrame]:
+def backtest_overnight(data: dict, top_n: int = 1, cost: float = 0.0005, capital: float = 1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings: dict[str, int] = {}
     trades: list[dict] = []
     eq_curve: list[dict] = []

@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Double Top / Bottom Breakout",
     "family": "Pattern",
-    "params": {"lookback": 60, "tol": 0.05, "min_sep": 10, "max_holdings": 5, "cost": 0.001},
+    "params": {"lookback": 60, "tol": 0.05, "min_sep": 10, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Local maxima via (close>prev & close>next); two peaks within 5% separated by ≥10 bars; long on close > higher peak's high; exit below lower peak's low.",
 }
 
@@ -41,9 +41,9 @@ def _double_top_breakout(close: pd.Series, high: pd.Series, i: int, lookback: in
                 return True, float(high.iloc[lo_peak_idx])
     return False, float("nan")
 
-def backtest(data: dict, lookback=60, tol=0.05, min_sep=10, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, lookback=60, tol=0.05, min_sep=10, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     entry_bar_idx = {}
     stop_low = {}

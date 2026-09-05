@@ -5,16 +5,16 @@ import numpy as np
 META = {
     "name": "Vol Targeting Portfolio",
     "family": "Volatility",
-    "params": {"target_vol": 0.15, "vol_n": 20, "top_n": 10, "lookback": 252, "max_w": 0.1, "cost_bps": 1.0},
+    "params": {"capital": 1_000_000, "target_vol": 0.15, "vol_n": 20, "top_n": 10, "lookback": 252, "max_w": 0.1, "cost_bps": 1.0},
     "description": "Inverse-vol weighting on monthly top-10 by 12M momentum; daily rebalance; 1bps turnover cost.",
 }
 
-def backtest(data: dict, target_vol=0.15, vol_n=20, top_n=10, lookback=252, max_w=0.1, cost_bps=1.0) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, target_vol=0.15, vol_n=20, top_n=10, lookback=252, max_w=0.1, cost_bps=1.0, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique() if all_dates else []
     month_ends = [max([d for d in all_dates if pd.Period(d, freq="M") == p]) for p in months]
     cost = cost_bps / 10000
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     target_w = {}
     trades = []

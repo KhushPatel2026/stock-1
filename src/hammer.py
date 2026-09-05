@@ -4,7 +4,7 @@ import pandas as pd
 META = {
     "name": "Hammer / Shooting Star",
     "family": "Pattern",
-    "params": {"hold_bars": 5, "trend_n": 20, "max_holdings": 5, "cost": 0.001},
+    "params": {"hold_bars": 5, "trend_n": 20, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Hammer in SMA(20) downtrend → long 5 bars; shooting star short-candidates skipped (long-only).",
 }
 
@@ -17,9 +17,9 @@ def _signal(df: pd.DataFrame, trend_n: int) -> pd.Series:
     hammer = (lower > 2 * body) & (upper < body / 2) & (c < sma)
     return hammer.fillna(False)
 
-def backtest(data: dict, hold_bars=5, trend_n=20, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, hold_bars=5, trend_n=20, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     entry_bar_idx = {}
     bar_index_map = {t: {d: i for i, d in enumerate(df.index)} for t, df in data.items()}

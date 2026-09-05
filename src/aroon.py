@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Aroon Trend",
     "family": "Trend",
-    "params": {"n": 25, "up_thresh": 80, "down_thresh": 50, "top_n": 5, "cost": 0.001},
+    "params": {"n": 25, "up_thresh": 80, "down_thresh": 50, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long on Aroon Up breakout above threshold with Up > Down; exit when Down turns strong.",
 }
 
@@ -25,9 +25,9 @@ def _entry(df: pd.DataFrame, n: int, up_thresh: int) -> pd.Series:
 def _exit(df: pd.DataFrame, n: int, down_thresh: int) -> pd.Series:
     return _aroon_down(df["low"], n) > down_thresh
 
-def backtest(data: dict, n=25, up_thresh=80, down_thresh=50, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, n=25, up_thresh=80, down_thresh=50, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

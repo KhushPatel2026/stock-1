@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "GARCH-Lite (EWMA Vol Forecast)",
     "family": "Volatility",
-    "params": {"lam": 0.94, "realized_n": 20, "top_n": 5, "cost": 0.001},
+    "params": {"capital": 1_000_000, "lam": 0.94, "realized_n": 20, "top_n": 5, "cost": 0.001},
     "description": "EWMA variance forecast vs 20d realized vol; long top-5 by 12M momentum when expansion expected.",
 }
 
@@ -25,11 +25,11 @@ def _ewma_var(rets: pd.Series, lam: float) -> pd.Series:
         out.loc[valid.index[i]] = prev
     return out
 
-def backtest(data: dict, lam=0.94, realized_n=20, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, lam=0.94, realized_n=20, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique() if all_dates else []
     month_ends = [max([d for d in all_dates if pd.Period(d, freq="M") == p]) for p in months]
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

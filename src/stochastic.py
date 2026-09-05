@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Stochastic Oscillator",
     "family": "MR",
-    "params": {"k_n": 14, "d_n": 3, "oversold": 20, "overbought": 80, "exit_level": 50, "top_n": 5, "cost": 0.001},
+    "params": {"k_n": 14, "d_n": 3, "oversold": 20, "overbought": 80, "exit_level": 50, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long when %K < 20 AND %K > %D; exit when %K > 80 OR %K > 50.",
 }
 
@@ -14,9 +14,9 @@ def _stoch_k(close: pd.Series, high: pd.Series, low: pd.Series, n: int) -> pd.Se
     ll = low.rolling(n).min()
     return (close - ll) / (hh - ll).replace(0, np.nan) * 100
 
-def backtest(data: dict, k_n=14, d_n=3, oversold=20, overbought=80, exit_level=50, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, k_n=14, d_n=3, oversold=20, overbought=80, exit_level=50, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

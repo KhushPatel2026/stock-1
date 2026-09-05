@@ -55,6 +55,7 @@ Repo: https://github.com/KhushPatel2026/stock-1
 | FEAT-004 | Advanced Quant (Gap-Fade/Sector-Neutral/Microstructure/Beta-Hedge/ML) | Done (P7) — RELEASED v0.4.0 | 5 | — | v0.4.0 |
 | FEAT-005 | Quant Classics (Bollinger/RSI2/Dual Mom/Magic Formula/Risk Parity/Div Carry) | Done (P7) — RELEASED v0.5.0 | 6 | — | v0.5.0 |
 | FEAT-006 | 50-Strategy Library + Frontend (React+shadcn+tailwind+FastAPI) | Done (P7) — RELEASED v0.6.0 | 32 | — | v0.6.0 |
+| FEAT-011 | Frontier batch (XS-momentum/ST-reversal/LT-reversal/BAB/Distance-pairs/Vol-managed/Chandelier/TOM/Expiry) | Done — unreleased | 9 | — | — |
 
 ## Sub-Issue Registry
 | SUB-ID | Parent FEAT | Name | Phase | Branch | GH Issue | Status |

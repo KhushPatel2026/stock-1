@@ -1,4 +1,4 @@
-"""Portfolio backtest loop — long-only, daily, max 5 positions."""
+"""Portfolio backtest loop + Upstox live portfolio fetch."""
 import pandas as pd
 from .signals import is_entry
 from .sizing import levels, position_size
@@ -115,3 +115,118 @@ META = {
     "params": {"capital": 1_000_000, "max_positions": 5, "risk_pct": 0.01},
     "description": "Long-only trend: close>SMA200 filter, SMA20>SMA50 cross, ADX>20, 1% vol sizing, ATR SL/TP.",
 }
+
+
+# ---------------------------------------------------------------------------
+# Live Upstox portfolio fetch + enrichment
+# ---------------------------------------------------------------------------
+
+from .upstox import UpstoxClient, to_upstox_symbol
+
+
+def fetch_portfolio(access_token: str | None) -> dict:
+    """Fetch user's holdings + positions from Upstox, enrich with current prices."""
+    client = UpstoxClient(access_token)
+    if not client.is_authenticated():
+        return {"authenticated": False, "message": "no access token"}
+
+    try:
+        profile = client.get_profile()
+    except Exception as e:
+        return {"authenticated": True, "error": f"profile failed: {e}"}
+
+    holdings: list = []
+    positions: list = []
+    funds: dict = {}
+
+    try:
+        holdings_raw = client.get_holdings()
+        if isinstance(holdings_raw, dict):
+            holdings_raw = holdings_raw.get("data", [])
+        holdings = holdings_raw or []
+    except Exception as e:
+        return {"authenticated": True, "error": f"holdings failed: {e}"}
+
+    try:
+        positions_raw = client.get_positions()
+        if isinstance(positions_raw, dict):
+            positions_raw = positions_raw.get("data", [])
+        positions = positions_raw or []
+    except Exception:
+        positions = []
+
+    try:
+        funds_raw = client.get_funds()
+        if isinstance(funds_raw, dict):
+            funds_raw = funds_raw.get("data", funds_raw)
+        funds = funds_raw or {}
+    except Exception:
+        funds = {}
+
+    # Build yfinance tickers from holdings — skip the network round-trip if none
+    tickers: list[str] = []
+    for h in holdings:
+        sym = h.get("trading_symbol") or h.get("symbol") or ""
+        if not sym:
+            continue
+        full = sym if sym.endswith(".NS") else f"{sym}.NS"
+        if full not in tickers:
+            tickers.append(full)
+
+    data: dict = {}
+    if tickers:
+        try:
+            from .data import fetch_many
+            data = fetch_many(tickers, period="5d")
+        except Exception:
+            data = {}
+
+    enriched = []
+    for h in holdings:
+        sym = h.get("trading_symbol") or h.get("symbol") or ""
+        full = sym if sym.endswith(".NS") else f"{sym}.NS"
+        qty = float(h.get("quantity", 0) or 0)
+        avg = float(h.get("average_price", 0) or 0)
+        ltp = float(h.get("last_price", 0) or 0)
+        cur_price = None
+        if full in data and not data[full].empty and "close" in data[full].columns:
+            cur_price = float(data[full]["close"].iloc[-1])
+        elif ltp:
+            cur_price = ltp
+        invested = qty * avg
+        current = qty * (cur_price or avg)
+        pnl = current - invested
+        pnl_pct = (pnl / invested * 100) if invested else 0
+        enriched.append({
+            "ticker": full,
+            "name": h.get("company_name", sym),
+            "quantity": qty,
+            "avg_price": avg,
+            "current_price": cur_price,
+            "invested": round(invested, 2),
+            "current_value": round(current, 2),
+            "pnl": round(pnl, 2),
+            "pnl_pct": round(pnl_pct, 2),
+        })
+
+    total_invested = sum(e["invested"] for e in enriched)
+    total_current = sum(e["current_value"] for e in enriched)
+    total_pnl = total_current - total_invested
+    total_pnl_pct = (total_pnl / total_invested * 100) if total_invested else 0
+
+    profile_data = profile.get("data", profile) if isinstance(profile, dict) else profile
+
+    return {
+        "authenticated": True,
+        "profile": profile_data,
+        "holdings": enriched,
+        "positions": positions,
+        "funds": funds,
+        "summary": {
+            "n_holdings": len(enriched),
+            "total_invested": round(total_invested, 2),
+            "total_current": round(total_current, 2),
+            "total_pnl": round(total_pnl, 2),
+            "total_pnl_pct": round(total_pnl_pct, 2),
+        },
+    }

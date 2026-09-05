@@ -12,7 +12,7 @@ def rolling_beta(stock_rets: pd.Series, nifty_rets: pd.Series, window: int = 60)
         out.iloc[i]= c/v if v and v!=0 else 1.0
     return out
 
-def backtest(data: dict[str, pd.DataFrame], stock: str = None, nifty_proxy: pd.Series = None, lookback: int = 60) -> tuple[list[dict], pd.DataFrame, pd.Series]:
+def backtest(data: dict[str, pd.DataFrame], stock: str = None, nifty_proxy: pd.Series = None, lookback: int = 60, capital: float = 1_000_000) -> tuple[list[dict], pd.DataFrame, pd.Series]:
     tickers=list(data.keys())
     if not tickers:
         raise ValueError("no data")
@@ -31,13 +31,13 @@ def backtest(data: dict[str, pd.DataFrame], stock: str = None, nifty_proxy: pd.S
     nifty_rets=nifty_proxy.pct_change()
     beta=rolling_beta(stock_rets.reindex(all_dates), nifty_rets.reindex(all_dates), lookback)
     trades=[]
-    cash=1_000_000
+    cash=capital
     # hold stock long + short Nifty beta notional, rebalance daily beta
     shares_stock=0
     # init
     first=all_dates[lookback]
     price=float(data[stock].loc[first,"close"])
-    notional=1_000_000*0.1
+    notional=capital*0.1
     shares_stock=int(notional//price)
     cash-=shares_stock*price
     trades.append({"ticker":stock,"date":first,"action":"buy","price":price,"shares":shares_stock})
@@ -83,6 +83,6 @@ def backtest_returns_only(data: dict, stock: str = "RELIANCE.NS", **kwargs) -> t
 META = {
     "name": "Beta-Hedged Single Stock",
     "family": "Hedge",
-    "params": {"stock": "RELIANCE.NS"},
+    "params": {"capital": 1_000_000, "stock": "RELIANCE.NS"},
     "description": "Long stock + short beta × Nifty (synthetic equal-weight proxy).",
 }

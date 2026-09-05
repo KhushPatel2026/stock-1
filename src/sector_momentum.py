@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from .universe import SECTORS
 
-def backtest(data: dict[str, pd.DataFrame], top_n: int = 1) -> tuple[list[dict], pd.DataFrame]:
+def backtest(data: dict[str, pd.DataFrame], top_n: int = 1, capital: float = 1_000_000) -> tuple[list[dict], pd.DataFrame]:
     all_dates=sorted(set().union(*(set(df.index) for df in data.values())))
     # month ends
     months=pd.Series(all_dates).dt.to_period("M").unique() if all_dates else []
@@ -12,7 +12,7 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 1) -> tuple[list[dict],
         ds=[d for d in all_dates if pd.Period(d, freq="M")==p]
         if ds: month_ends.append(max(ds))
     trades=[]
-    cash=1_000_000
+    cash=capital
     holdings={} # ticker -> shares (positive long, negative short)
     equity_curve=[]
     for d in all_dates:
@@ -43,8 +43,8 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 1) -> tuple[list[dict],
             if n_legs==0:
                 pass
             else:
-                gross_long=1_000_000*0.5  # 50% gross long
-                gross_short=1_000_000*0.5
+                gross_long=capital*0.5  # 50% gross long
+                gross_short=capital*0.5
                 per_long=gross_long/max(1,len(longs))
                 per_short=gross_short/max(1,len(shorts))
                 for t in longs:
@@ -70,6 +70,6 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 1) -> tuple[list[dict],
 META = {
     "name": "Sector-Neutral Momentum",
     "family": "Cross-sect",
-    "params": {"top_n": 1},
+    "params": {"capital": 1_000_000, "top_n": 1},
     "description": "Within-sector cross-sectional momentum long/short, monthly.",
 }

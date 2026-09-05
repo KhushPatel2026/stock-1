@@ -1,7 +1,7 @@
 """Risk parity — inverse-volatility weighting, monthly selection (top 12M momentum) + daily rebalance."""
 import pandas as pd
 
-def backtest(data: dict, lookback=60, top_n=10, cost_bps=1) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, lookback=60, top_n=10, cost_bps=1, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique()
     month_ends = []
@@ -9,7 +9,7 @@ def backtest(data: dict, lookback=60, top_n=10, cost_bps=1) -> tuple[list, pd.Da
         ds = [d for d in all_dates if pd.Period(d, freq="M") == p]
         if ds:
             month_ends.append(max(ds))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     target_w = {}
     trades = []
@@ -74,6 +74,6 @@ def backtest(data: dict, lookback=60, top_n=10, cost_bps=1) -> tuple[list, pd.Da
 META = {
     "name": "Risk Parity (Inverse Vol)",
     "family": "Allocation",
-    "params": {"top_n": 5, "cost": 0.001},
+    "params": {"capital": 1_000_000, "top_n": 5, "cost": 0.001},
     "description": "Inverse-vol weighting, daily rebalance.",
 }

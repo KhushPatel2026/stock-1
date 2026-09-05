@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Z-Score MR",
     "family": "MR",
-    "params": {"n": 20, "trend_n": 200, "entry_z": -2.0, "exit_z": 0.0, "top_n": 5, "cost": 0.001},
+    "params": {"n": 20, "trend_n": 200, "entry_z": -2.0, "exit_z": 0.0, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long when (close - SMA20)/std20 < -2 AND close > SMA200; exit when z > 0.",
 }
 
@@ -14,9 +14,9 @@ def _zscore(close: pd.Series, n: int) -> pd.Series:
     sd = close.rolling(n).std()
     return (close - sma) / sd.replace(0, np.nan)
 
-def backtest(data: dict, n=20, trend_n=200, entry_z=-2.0, exit_z=0.0, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, n=20, trend_n=200, entry_z=-2.0, exit_z=0.0, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

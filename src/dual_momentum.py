@@ -1,7 +1,7 @@
 """Dual momentum (Antonacci) — absolute 12M momentum gate + relative cross-section rank, monthly."""
 import pandas as pd
 
-def backtest(data: dict, lookback=252, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, lookback=252, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique()
     month_ends = []
@@ -9,7 +9,7 @@ def backtest(data: dict, lookback=252, top_n=5, cost=0.001) -> tuple[list, pd.Da
         ds = [d for d in all_dates if pd.Period(d, freq="M") == p]
         if ds:
             month_ends.append(max(ds))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []
@@ -59,6 +59,6 @@ def backtest(data: dict, lookback=252, top_n=5, cost=0.001) -> tuple[list, pd.Da
 META = {
     "name": "Dual Momentum (Antonacci)",
     "family": "Momentum",
-    "params": {"top_n": 5, "cost": 0.001},
+    "params": {"top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "12M absolute gate + relative cross-section rank.",
 }

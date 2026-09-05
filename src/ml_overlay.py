@@ -109,7 +109,7 @@ def train_predict(data: dict[str, pd.DataFrame], train: int = 252, test: int = 6
     # return model of last fold, preds
     return clf if 'clf' in locals() else None, preds, preds
 
-def backtest(data: dict[str, pd.DataFrame], top_n: int = 3) -> tuple[list[dict], pd.DataFrame]:
+def backtest(data: dict[str, pd.DataFrame], top_n: int = 3, capital: float = 1_000_000) -> tuple[list[dict], pd.DataFrame]:
     _, preds, _ = train_predict(data)
     if preds.empty:
         return [], pd.DataFrame(columns=["equity"])
@@ -118,7 +118,7 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 3) -> tuple[list[dict],
     # group preds by month
     preds["date"]=pd.to_datetime(preds["date"])
     months=preds["date"].dt.to_period("M").unique()
-    trades=[]; cash=1_000_000; holdings={}
+    trades=[]; cash=capital; holdings={}
     equity_curve=[]
     # map month -> top
     month_tops={}
@@ -140,7 +140,7 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 3) -> tuple[list[dict],
             for t in month_tops[d]:
                 if d not in data[t].index: continue
                 price=float(data[t].loc[d,"close"])
-                shares=int((1_000_000*0.2)//price) if price>0 else 0
+                shares=int((capital*0.2)//price) if price>0 else 0
                 if shares==0 or shares*price>cash: continue
                 cash-=shares*price*(1+0.001)
                 holdings[t]=shares
@@ -154,6 +154,6 @@ def backtest(data: dict[str, pd.DataFrame], top_n: int = 3) -> tuple[list[dict],
 META = {
     "name": "ML Overlay (HistGradientBoosting)",
     "family": "ML",
-    "params": {"top_n": 3},
+    "params": {"capital": 1_000_000, "top_n": 3},
     "description": "HistGradientBoosting on factors, walk-forward CV, long top-N probabilities.",
 }

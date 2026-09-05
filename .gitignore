@@ -17,3 +17,6 @@ frontend/dist/
 frontend/.vite/
 cache/
 data/paper_state.json
+data/paper.db
+data/paper.db-journal
+frontend/public/reports/

@@ -4,15 +4,15 @@ import pandas as pd
 META = {
     "name": "Volatility Regime Filter",
     "family": "Volatility",
-    "params": {"vol_n": 20, "median_lookback": 252, "top_n": 5, "cost": 0.001},
+    "params": {"capital": 1_000_000, "vol_n": 20, "median_lookback": 252, "top_n": 5, "cost": 0.001},
     "description": "Long top-5 by 12M momentum only when realized vol(20) > median over last 252 bars.",
 }
 
-def backtest(data: dict, vol_n=20, median_lookback=252, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, vol_n=20, median_lookback=252, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
     months = pd.Series(all_dates).dt.to_period("M").unique() if all_dates else []
     month_ends = [max([d for d in all_dates if pd.Period(d, freq="M") == p]) for p in months]
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

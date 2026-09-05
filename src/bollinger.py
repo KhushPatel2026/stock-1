@@ -9,9 +9,9 @@ def _entry_signal(df: pd.DataFrame, window=20, k=2.0) -> pd.Series:
     sma200 = close.rolling(200).mean()
     return (close < lower) & (close > sma200)
 
-def backtest(data: dict, top_n=10, cost=0.0005) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, top_n=10, cost=0.0005, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []
@@ -49,6 +49,6 @@ def backtest(data: dict, top_n=10, cost=0.0005) -> tuple[list, pd.DataFrame]:
 META = {
     "name": "Bollinger Mean Reversion",
     "family": "MR",
-    "params": {"top_n": 5, "cost": 0.001},
+    "params": {"top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "20d SMA ±2σ with SMA200 trend filter.",
 }

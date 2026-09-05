@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "MACD Signal",
     "family": "Trend",
-    "params": {"fast": 12, "slow": 26, "signal": 9, "top_n": 5, "cost": 0.001},
+    "params": {"fast": 12, "slow": 26, "signal": 9, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long on MACD crossing above signal EMA; exit on cross below.",
 }
 
@@ -28,9 +28,9 @@ def _exit(df: pd.DataFrame, fast: int, slow: int, signal: int) -> pd.Series:
     cur_diff = m - s
     return (cur_diff < 0) & (prev_diff >= 0)
 
-def backtest(data: dict, fast=12, slow=26, signal=9, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, fast=12, slow=26, signal=9, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

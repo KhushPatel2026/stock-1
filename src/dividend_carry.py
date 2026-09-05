@@ -18,7 +18,7 @@ YIELDS = {
     "M&M.NS": 0.85, "SHRIRAMFIN.NS": 0.10,
 }
 
-def backtest(data: dict, top_q=0.25, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, top_q=0.25, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     elig = [t for t in data if YIELDS.get(t, 0) > 0]
     elig.sort(key=lambda t: -YIELDS[t])
     n = max(1, int(len(elig) * top_q))
@@ -30,7 +30,7 @@ def backtest(data: dict, top_q=0.25, cost=0.001) -> tuple[list, pd.DataFrame]:
         ds = [d for d in all_dates if pd.Period(d, freq="M") == p]
         if ds:
             month_ends.append(max(ds))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []
@@ -65,6 +65,6 @@ def backtest(data: dict, top_q=0.25, cost=0.001) -> tuple[list, pd.DataFrame]:
 META = {
     "name": "Dividend Yield Carry",
     "family": "Carry",
-    "params": {"top_n": 5, "cost": 0.001},
+    "params": {"top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Top quartile by static yield, monthly rebalance.",
 }

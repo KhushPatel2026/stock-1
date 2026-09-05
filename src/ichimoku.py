@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Ichimoku Cloud",
     "family": "Trend",
-    "params": {"tenkan_n": 9, "kijun_n": 26, "senkou_b_n": 52, "shift": 26, "top_n": 5, "cost": 0.001},
+    "params": {"tenkan_n": 9, "kijun_n": 26, "senkou_b_n": 52, "shift": 26, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Long above both Senkou spans with Tenkan > Kijun; exit when close drops below Kijun.",
 }
 
@@ -27,9 +27,9 @@ def _exit(df: pd.DataFrame, t_n: int, k_n: int, sb_n: int, shift: int) -> pd.Ser
     _, kijun, _, _ = _ichimoku(df, t_n, k_n, sb_n, shift)
     return close < kijun
 
-def backtest(data: dict, tenkan_n=9, kijun_n=26, senkou_b_n=52, shift=26, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, tenkan_n=9, kijun_n=26, senkou_b_n=52, shift=26, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

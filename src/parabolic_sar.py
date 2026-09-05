@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Parabolic SAR",
     "family": "Trend",
-    "params": {"accel": 0.02, "max_accel": 0.2, "top_n": 5, "cost": 0.001},
+    "params": {"accel": 0.02, "max_accel": 0.2, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Wilder PSAR; long when PSAR sits below close, exit when PSAR flips above.",
 }
 
@@ -63,9 +63,9 @@ def _signal(df: pd.DataFrame, accel: float, max_accel: float) -> tuple[pd.Series
     close = df["close"]
     return psar < close, psar > close
 
-def backtest(data: dict, accel=0.02, max_accel=0.2, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, accel=0.02, max_accel=0.2, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

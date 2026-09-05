@@ -2,10 +2,10 @@
 import pandas as pd
 import numpy as np
 
-def backtest(data: dict[str, pd.DataFrame], vol_mult: float = 2.0) -> tuple[list[dict], pd.DataFrame]:
+def backtest(data: dict[str, pd.DataFrame], vol_mult: float = 2.0, capital: float = 1_000_000) -> tuple[list[dict], pd.DataFrame]:
     all_dates=sorted(set().union(*(set(df.index) for df in data.values())))
     trades=[]
-    cash=1_000_000
+    cash=capital
     holdings={} # ticker -> shares, expiry
     vol_ma={t: data[t]["volume"].rolling(20).mean() for t in data}
     equity_curve=[]
@@ -33,7 +33,7 @@ def backtest(data: dict[str, pd.DataFrame], vol_mult: float = 2.0) -> tuple[list
             if rng==0: continue
             if (float(row["high"])-float(row["close"])) > 0.3*rng: continue
             price=float(row["close"])
-            notional=1_000_000*0.02
+            notional=capital*0.02
             shares=int(notional//price)
             if shares==0 or shares*price>cash: continue
             cash-=shares*price*(1+0.001)
@@ -50,6 +50,6 @@ def backtest(data: dict[str, pd.DataFrame], vol_mult: float = 2.0) -> tuple[list
 META = {
     "name": "Microstructure (Vol Spike)",
     "family": "Volume",
-    "params": {"vol_mult": 2.0},
+    "params": {"vol_mult": 2.0, "capital": 1_000_000},
     "description": "Volume >2x 20d avg + close near high → next-day continuation (daily proxy).",
 }

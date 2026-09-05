@@ -11,9 +11,9 @@ def _rsi(close: pd.Series, n=2) -> pd.Series:
     rs = roll_up / roll_down.replace(0, np.nan)
     return 100 - (100 / (1 + rs))
 
-def backtest(data: dict, rsi_thresh=5, exit_ma=5, max_n=5, cost=0.0005) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, rsi_thresh=5, exit_ma=5, max_n=5, cost=0.0005, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []
@@ -52,6 +52,6 @@ def backtest(data: dict, rsi_thresh=5, exit_ma=5, max_n=5, cost=0.0005) -> tuple
 META = {
     "name": "RSI(2) Connors Reversal",
     "family": "MR",
-    "params": {"top_n": 5, "cost": 0.001},
+    "params": {"top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Connors short-horizon reversal, exit on 5d SMA cross.",
 }

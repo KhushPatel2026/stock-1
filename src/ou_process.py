@@ -5,7 +5,7 @@ import numpy as np
 META = {
     "name": "Ornstein-Uhlenbeck MR",
     "family": "MR",
-    "params": {"n": 60, "entry_z": -2.0, "exit_z": 0.0, "top_n": 5, "cost": 0.001},
+    "params": {"n": 60, "entry_z": -2.0, "exit_z": 0.0, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Fit dx = a + b*x on rolling window; spread = (close - mu)/sigma; long when z < -2; exit when z > 0.",
 }
 
@@ -35,9 +35,9 @@ def _ou_z(close: pd.Series, n: int) -> pd.Series:
         out[i] = resid / sigma
     return pd.Series(out, index=close.index)
 
-def backtest(data: dict, n=60, entry_z=-2.0, exit_z=0.0, top_n=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, n=60, entry_z=-2.0, exit_z=0.0, top_n=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

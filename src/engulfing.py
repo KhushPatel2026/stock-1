@@ -4,7 +4,7 @@ import pandas as pd
 META = {
     "name": "Engulfing Pattern",
     "family": "Pattern",
-    "params": {"hold_bars": 5, "max_holdings": 5, "cost": 0.001},
+    "params": {"hold_bars": 5, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Bullish engulfing (prev red, current green, current close > prev open); long next bar, hold 5 bars.",
 }
 
@@ -14,9 +14,9 @@ def _signal(df: pd.DataFrame) -> pd.Series:
     engulf = cur_green & prev_red & (df["close"] > df["open"].shift(1))
     return engulf.fillna(False)
 
-def backtest(data: dict, hold_bars=5, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, hold_bars=5, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     entry_bar_idx = {}
     bar_index_map = {t: {d: i for i, d in enumerate(df.index)} for t, df in data.items()}

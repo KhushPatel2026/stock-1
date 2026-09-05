@@ -4,7 +4,7 @@ import pandas as pd
 META = {
     "name": "Three White Soldiers / Black Crows",
     "family": "Pattern",
-    "params": {"hold_bars": 5, "max_holdings": 5, "cost": 0.001},
+    "params": {"hold_bars": 5, "max_holdings": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Three white soldiers (consecutive greens, ascending closes, body > 50% range); long 5 bars. Crows skipped.",
 }
 
@@ -22,9 +22,9 @@ def _signal(df: pd.DataFrame) -> pd.Series:
     sig = g0 & g1 & g2 & higher_close
     return sig.fillna(False)
 
-def backtest(data: dict, hold_bars=5, max_holdings=5, cost=0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, hold_bars=5, max_holdings=5, cost=0.001, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     entry_bar_idx = {}
     bar_index_map = {t: {d: i for i, d in enumerate(df.index)} for t, df in data.items()}

@@ -47,7 +47,7 @@ def _rank_at(data: dict, date, fundamentals: dict | None = None) -> pd.DataFrame
     return out.sort_values("score", ascending=False)
 
 
-def backtest(data: dict, top_decile=0.2, cost=0.001, use_real_fundamentals=True) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, top_decile=0.2, cost=0.001, use_real_fundamentals=True, capital=1_000_000) -> tuple[list, pd.DataFrame]:
     fundamentals: dict | None = None
     if use_real_fundamentals:
         try:
@@ -62,7 +62,7 @@ def backtest(data: dict, top_decile=0.2, cost=0.001, use_real_fundamentals=True)
         ds = [d for d in all_dates if pd.Period(d, freq="M") == p]
         if ds:
             month_ends.append(max(ds))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []
@@ -100,6 +100,6 @@ def backtest(data: dict, top_decile=0.2, cost=0.001, use_real_fundamentals=True)
 META = {
     "name": "Magic Formula (Greenblatt)",
     "family": "Factor",
-    "params": {"top_n": 5, "cost": 0.001, "use_real_fundamentals": True},
+    "params": {"top_n": 5, "cost": 0.001, "use_real_fundamentals": True, "capital": 1_000_000},
     "description": "EY+ROE composite z-score; real yfinance .info when available, price-proxied fallback (ADR-005).",
 }

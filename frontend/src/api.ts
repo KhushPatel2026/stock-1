@@ -116,12 +116,13 @@ export async function runBacktest(
   strategy_id: string,
   tickers: string[],
   period: string,
-  params: Record<string, unknown> | null
+  params: Record<string, unknown> | null,
+  capital: number = 1_000_000
 ): Promise<BacktestResult> {
   const r = await fetch(`${API}/api/backtest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ strategy_id, tickers, period, params }),
+    body: JSON.stringify({ strategy_id, tickers, period, params, capital }),
   })
   if (!r.ok) {
     const txt = await r.text()
@@ -189,4 +190,102 @@ export async function paperRebalance(strategy_id: string, tickers?: string[]) {
   })
   if (!r.ok) throw new Error(await r.text())
   return r.json()
+}
+
+// === Portfolio & Upstox ===
+export interface UpstoxHolding {
+  ticker: string
+  name: string
+  quantity: number
+  avg_price: number
+  current_price: number | null
+  invested: number
+  current_value: number
+  pnl: number
+  pnl_pct: number
+}
+
+export interface PortfolioData {
+  authenticated: boolean
+  message?: string
+  error?: string
+  profile?: any
+  holdings?: UpstoxHolding[]
+  positions?: any[]
+  funds?: any
+  summary?: {
+    n_holdings: number
+    total_invested: number
+    total_current: number
+    total_pnl: number
+    total_pnl_pct: number
+  }
+}
+
+export async function fetchPortfolio(): Promise<PortfolioData> {
+  const r = await fetch(`${API}/api/portfolio`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function setUpstoxToken(access_token: string): Promise<{ ok: boolean; token_length: number }> {
+  const r = await fetch(`${API}/api/upstox/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function fetchUpstoxStatus(): Promise<{ authenticated: boolean }> {
+  const r = await fetch(`${API}/api/upstox/status`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function fetchIndiaVix(): Promise<any> {
+  const r = await fetch(`${API}/api/upstox/india-vix`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function fetchInsightsPortfolio(): Promise<any> {
+  const r = await fetch(`${API}/api/insights/portfolio`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+// === AI ===
+export async function fetchAIStatus(): Promise<{ available: boolean }> {
+  const r = await fetch(`${API}/api/ai/status`)
+  if (!r.ok) return { available: false }
+  return r.json()
+}
+
+export async function aiExplainStrategy(strategy_id: string, metrics: any, user_question = ""): Promise<{ text: string; ai_enabled: boolean }> {
+  const r = await fetch(`${API}/api/ai/explain-strategy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strategy_id, metrics, user_question }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function aiPersonalized(): Promise<{ text: string; ai_enabled: boolean; stats: any }> {
+  const r = await fetch(`${API}/api/ai/personalized`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export interface StrategyStat {
+  strategy_id: string
+  count: number
+  last_used: string
+}
+
+export async function fetchStrategyStats(): Promise<StrategyStat[]> {
+  // No dedicated endpoint — derive from recommendations or just return [] for now
+  return []
 }

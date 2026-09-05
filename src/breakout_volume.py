@@ -5,14 +5,14 @@ import numpy as np
 META = {
     "name": "Volume-Confirmed Breakout",
     "family": "Trend",
-    "params": {"lookback": 20, "vol_mult": 1.5, "top_n": 5, "cost": 0.001},
+    "params": {"lookback": 20, "vol_mult": 1.5, "top_n": 5, "cost": 0.001, "capital": 1_000_000},
     "description": "Donchian-style breakout gated by volume > 1.5x 20-day avg.",
 }
 
 
-def backtest(data: dict, lookback: int = 20, vol_mult: float = 1.5, top_n: int = 5, cost: float = 0.001) -> tuple[list, pd.DataFrame]:
+def backtest(data: dict, lookback: int = 20, vol_mult: float = 1.5, top_n: int = 5, cost: float = 0.001, capital: float = 1_000_000) -> tuple[list, pd.DataFrame]:
     all_dates = sorted(set().union(*(set(df.index) for df in data.values())))
-    cash = 1_000_000
+    cash = capital
     holdings = {}
     trades = []
     eq_curve = []

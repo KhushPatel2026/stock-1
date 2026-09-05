@@ -1,6 +1,7 @@
 """Strategy registry — single source of truth for all backtests exposed via API."""
 from __future__ import annotations
 import importlib
+import inspect
 from typing import Callable
 import pandas as pd
 
@@ -82,6 +83,26 @@ REASONS: dict[str, str] = {
     "intraday_vwap": "VWAP reversion on 60m bars. Fade deviations > 1.5σ from VWAP.",
     "intraday_mom": "Intraday momentum: close > 20-bar SMA + volume confirmation, EOD exit.",
     "overnight_drift": "Close-to-open drift: buy at close, sell at next open. Captures overnight gap.",
+    "xs_momentum": "Classic 12-1 cross-sectional momentum: long winners, short losers. The most replicated anomaly in finance.",
+    "st_reversal": "Fades the past month: long 1M losers, short 1M winners. Liquidity-provision premium.",
+    "lt_reversal": "Fades the past 2Y: long long-term losers, short winners. De Bondt-Thaler overreaction.",
+    "bab": "Frazzini-Pedersen: long low-beta levered to beta 1, short high-beta de-levered. Leverage-constraint premium.",
+    "distance_pairs": "Gatev distance method: min-SSD same-sector pair, z-score traded. No cointegration test needed.",
+    "vol_managed": "Moreira-Muir: scales market exposure to a 15% vol target. Delevers into stress, relevers after.",
+    "chandelier": "Donchian entry + ATR trailing-stop exit. Lets winners run instead of fixed TP.",
+    "turn_of_month": "Long only on last-1 + first-3 trading days of month. Classic calendar effect.",
+    "expiry_drift": "Long basket on Thursdays (NSE weekly expiry day). Expiry-day drift proxy.",
+    "fama_french": "Fama-French 5-Factor + Carhart Momentum multi-factor composite ranking.",
+    "piotroski_f": "Piotroski 9-point fundamental accounting score measuring profitability, leverage, and efficiency.",
+    "accrual_anomaly": "Sloan (1996) anomaly: favors high operating cash flow relative to accounting paper accruals.",
+    "tsmom": "Time-Series Momentum (Moskowitz et al.): multi-horizon trend scaled by inverse realized volatility.",
+    "pca_stat_arb": "Avellaneda & Lee (2010): PCA eigenmode factor decomposition with OU residual mean-reversion.",
+    "kalman_pairs": "State-space recursive Kalman filter estimating dynamic time-varying hedge ratios.",
+    "johansen_basket": "Johansen cointegration rank test constructing stationary synthetic multi-asset baskets.",
+    "lead_lag": "Cross-autoregressive information diffusion: buys correlated laggards following leader shocks.",
+    "vrp": "Variance Risk Premium: harvests the spread between implied volatility (India VIX) and realized volatility.",
+    "macro_roro": "Global macro risk-on/risk-off composite: cuts exposure during dollar/crude/yield shocks.",
+    "almgren_chriss": "Almgren-Chriss (2000) optimal execution trajectory balancing market impact vs volatility risk.",
 }
 
 
@@ -156,10 +177,58 @@ _reg("magic_formula_real", "src.magic_formula", "Factor", "Greenblatt with REAL 
 _reg("covered_call_real", "src.options_real", "Options", "Covered call using real option chains when available, BS fallback otherwise.", name_override="Covered Call (Real Chain)")
 
 # FEAT-008 — Intraday (4)
+
 _reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb", name_override="Opening Range Breakout")
 _reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap", name_override="VWAP Reversion")
 _reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom", name_override="Intraday Momentum")
 _reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight", name_override="Overnight Drift")
+
+# Cross-sectional factor strategies
+_reg("xs_momentum", "src.xsection", "Momentum", "12-1 month cross-sectional momentum (skip last month).", fn_name="backtest")
+_reg("st_reversal", "src.xsection", "MR", "Short-term reversal (5d return ranking).", fn_name="backtest_st")
+_reg("lt_reversal", "src.xsection", "MR", "Long-term reversal (5y return ranking).", fn_name="backtest_lt")
+
+# Factor variants
+_reg("bab", "src.bab", "Factor", "Betting Against Beta — long low-beta, short high-beta.")
+_reg("distance_pairs", "src.distance_pairs", "Stat-arb", "Distance method for pair trading.")
+_reg("vol_managed", "src.vol_managed", "Allocation", "Volatility-managed portfolio (Moreira-Muir).")
+_reg("chandelier", "src.chandelier", "Trend", "Chandelier exit — ATR-based trailing stop.")
+
+# Seasonal
+_reg("turn_of_month", "src.seasonal", "Seasonal", "Buy last day of month, sell 3rd day.", fn_name="backtest")
+_reg("expiry_drift", "src.seasonal", "Seasonal", "Indian monthly expiry drift.", fn_name="backtest_expiry")
+
+# Intraday
+_reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb", name_override="Opening Range Breakout")
+_reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap", name_override="VWAP Reversion")
+_reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom", name_override="Intraday Momentum")
+_reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight", name_override="Overnight Drift")
+
+
+# FEAT-011 — Frontier batch (momentum/reversal/BAB/distance/vol-managed/chandelier/seasonal)
+_reg("xs_momentum", "src.xsection", "Momentum", "12-1 cross-sectional momentum long/short, monthly.")
+_reg("st_reversal", "src.xsection", "MR", "Fade past-1M return, monthly.", fn_name="backtest_st")
+_reg("lt_reversal", "src.xsection", "MR", "Fade past-2Y return, monthly.", fn_name="backtest_lt")
+_reg("bab", "src.bab", "Factor", "Betting-against-beta, legs scaled to beta 1.", name_override="Betting-Against-Beta")
+_reg("distance_pairs", "src.distance_pairs", "Stat-arb", "Gatev min-SSD pair, z-score traded.", name_override="Distance Pairs")
+_reg("vol_managed", "src.vol_managed", "Allocation", "Moreira-Muir 15% vol-target scaling.", name_override="Vol-Managed Overlay")
+_reg("chandelier", "src.chandelier", "Trend", "Donchian entry + ATR trailing-stop exit.", name_override="Chandelier Exit Trend")
+_reg("turn_of_month", "src.seasonal", "Seasonal", "Long last-1 + first-3 trading days of month.")
+_reg("expiry_drift", "src.seasonal", "Seasonal", "Long basket on Thursdays (NSE expiry).", fn_name="backtest_expiry", name_override="Expiry-Day Drift")
+
+# Institutional Global Alphas Batch
+_reg("fama_french", "src.fama_french", "Factor", "Fama-French 5-Factor + Momentum composite.", name_override="Fama-French 5-Factor + Mom")
+_reg("piotroski_f", "src.piotroski_f", "Factor", "Piotroski F-Score & Mohanram Quality.", name_override="Piotroski F-Score Quality")
+_reg("accrual_anomaly", "src.accrual_anomaly", "Factor", "Sloan Accrual & Cash-Flow Anomaly.", name_override="Sloan Accrual Anomaly")
+_reg("tsmom", "src.tsmom", "Momentum", "Time-Series Momentum (Moskowitz et al.).", name_override="Time-Series Momentum (TSMOM)")
+_reg("pca_stat_arb", "src.pca_stat_arb", "Stat-arb", "PCA Eigenmode Residual Stat-Arb (Avellaneda-Lee).", name_override="PCA Residual Stat-Arb")
+_reg("kalman_pairs", "src.kalman_pairs", "Stat-arb", "Kalman Filter Dynamic Pairs Stat-Arb.", name_override="Kalman Dynamic Pairs")
+_reg("johansen_basket", "src.johansen_basket", "Stat-arb", "Johansen Multi-Asset Cointegrated Basket.", name_override="Johansen Basket Stat-Arb")
+_reg("lead_lag", "src.lead_lag", "Cross-sect", "Cross-Autoregressive Lead-Lag Momentum.", name_override="Lead-Lag Information Spillover")
+_reg("vrp", "src.vrp", "Volatility", "Variance Risk Premium (IV vs RV).", name_override="Variance Risk Premium (VRP)")
+_reg("macro_roro", "src.macro_roro", "Hedge", "Macro Risk-On/Risk-Off Regime Filter.", name_override="Macro Regime Switching (RORO)")
+_reg("almgren_chriss", "src.almgren_chriss", "Allocation", "Almgren-Chriss Optimal Execution Engine.", name_override="Almgren-Chriss Execution")
+
 
 
 def list_strategies() -> list[dict]:
@@ -199,7 +268,24 @@ def get_strategy(strategy_id: str) -> dict | None:
     return None
 
 
-def run_backtest(strategy_id: str, tickers: list[str], params: dict | None = None, period: str = "2y") -> dict:
+def _call_strategy_fn(fn, data: dict, merged: dict) -> tuple:
+    """Call fn(data, **filtered) — only params the fn accepts (plus **kwargs passthrough).
+
+    Replaces the old try/except-TypeError fallback, which silently dropped ALL
+    user params on any single mismatch.
+    """
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return fn(data, **merged)
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+        return fn(data, **merged)
+    accepted = set(sig.parameters) - {"data"}
+    return fn(data, **{k: v for k, v in merged.items() if k in accepted})
+
+
+def run_backtest(strategy_id: str, tickers: list[str], params: dict | None = None, period: str = "2y",
+                 capital: float = 1_000_000) -> dict:
     """Run a strategy and return {equity_curve, metrics, trades, info}."""
     entry = next((s for s in _REGISTRY if s["id"] == strategy_id), None)
     if entry is None:
@@ -218,12 +304,11 @@ def run_backtest(strategy_id: str, tickers: list[str], params: dict | None = Non
         for k, v in params.items():
             if v is not None:
                 merged[k] = v
+    # capital is dynamic: top-level arg wins, params-dict value respected, else default
+    if capital is not None:
+        merged["capital"] = capital
     # run
-    try:
-        result = fn(data, **merged)
-    except TypeError as e:
-        # param mismatch; fall back to defaults
-        result = fn(data)
+    result = _call_strategy_fn(fn, data, merged)
     trades, eq = result[0], result[1]
     # metrics
     metrics = _compute_metrics(eq)

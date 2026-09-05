@@ -88,6 +88,14 @@ def main() -> None:
             f.write(_df_to_md(pivot_dd))
             f.write("\n")
 
+    print(f"\nwalk_forward rows: {len(wf_df)} -> {wf_path}")
+    print(f"regime_tests rows: {len(rg_df)} -> {rg_path}")
+    print(f"regime_tests.md -> {rg_md_path}")
+    if failed:
+        print(f"failed: {len(failed)}")
+        for sid, err in failed[:10]:
+            print(f"  {sid}: {err}")
+
 
 def _df_to_md(df) -> str:
     """Format DataFrame as markdown table (no tabulate dependency)."""
@@ -99,18 +107,6 @@ def _df_to_md(df) -> str:
         cells = [str(idx)] + [str(row[c]) for c in cols]
         rows.append("| " + " | ".join(cells) + " |")
     return "\n".join([header, sep] + rows)
-    print(f"\nwalk_forward rows: {len(wf_df)} → {wf_path}")
-    print(f"regime_tests rows: {len(rg_df)} → {rg_path}")
-    print(f"regime_tests.md → {rg_md_path}")
-    if failed:
-        print(f"failed: {len(failed)}")
-        for sid, err in failed[:10]:
-            print(f"  {sid}: {err}")
-
-
-if __name__ == "__main__":
-    main()
-    print(f"  wrote {result['md_path']}")
 
 
 if __name__ == "__main__":
