@@ -291,7 +291,15 @@ def compute_signals(tickers: list[str] | None = None, period: str = "3mo") -> di
                 "strategy_id": sid,
                 "ticker": t,
                 "signal": sig,
-                "strength": round(float(strength), 3),
+                "strength": strength,
             })
-
     return {"as_of": as_of, "signals": signals}
+
+
+def compute_signals_for_tickers(tickers: list[str], period: str = "3mo") -> dict[str, list[tuple[str, str, float]]]:
+    """Per-ticker grouped signals: {ticker: [(strategy_id, signal, strength), ...]}"""
+    r = compute_signals(tickers, period)
+    out: dict[str, list] = {t: [] for t in tickers}
+    for s in r["signals"]:
+        out[s["ticker"]].append((s["strategy_id"], s["signal"], s["strength"]))
+    return out

@@ -55,6 +55,156 @@ def tickers() -> list[str]:
     return NIFTY50
 
 
+@app.get("/api/tickers/search")
+def tickers_search(q: str = "", limit: int = 10) -> list[dict]:
+    """Search any ticker via yfinance. Returns [{symbol, shortname, exchange}]."""
+    if not q or len(q) < 1:
+        return []
+    try:
+        import yfinance as yf
+        s = yf.Search(q, max_results=limit)
+        out = []
+        for quote in (s.quotes or [])[:limit]:
+            sym = quote.get("symbol", "")
+            if not sym:
+                continue
+            out.append({
+                "symbol": sym,
+                "shortname": quote.get("shortname") or quote.get("longname") or sym,
+                "exchange": quote.get("exchange", ""),
+                "quoteType": quote.get("quoteType", ""),
+            })
+        return out
+    except Exception as e:
+        raise HTTPException(500, f"search failed: {e}")
+
+
+class RecommendationsRequest(BaseModel):
+    tickers: list[str]
+    period: str = "1y"
+
+
+@app.post("/api/recommendations")
+def recommendations(req: RecommendationsRequest) -> dict:
+    """Run all strategies on selected tickers for a recent window, return ranked by Sharpe."""
+    if not req.tickers:
+        raise HTTPException(400, "tickers required")
+    from src.registry import list_strategies
+    from src.validation import run_walk_forward
+    items = list_strategies()
+    ranked = []
+    for s in items:
+        sid = s["id"]
+        try:
+            r = run_walk_forward(sid, req.tickers, period=req.period, chunk=63)
+            if r is None or r.empty:
+                continue
+            row = r.iloc[0]
+            ranked.append({
+                "strategy_id": sid,
+                "name": s["name"],
+                "family": s["family"],
+                "oos_sharpe": float(row.get("mean_oos_sharpe", 0)),
+                "total_return": float(row.get("total_oos_return", 0)),
+                "max_dd": float(row.get("max_dd", 0)),
+                "reason": s.get("reason", ""),
+            })
+        except Exception as e:
+            ranked.append({"strategy_id": sid, "name": s["name"], "family": s["family"], "error": str(e)[:80]})
+    ranked.sort(key=lambda x: x.get("oos_sharpe", -99), reverse=True)
+    return {"as_of": req.period, "tickers": req.tickers, "ranked": ranked}
+
+
+class DecisionsRequest(BaseModel):
+    tickers: list[str]
+    period: str = "3mo"
+
+
+@app.post("/api/decisions")
+def decisions(req: DecisionsRequest) -> dict:
+    """Per-ticker consensus: BUY / SELL / HOLD based on signals + recent Sharpe weighting."""
+    if not req.tickers:
+        raise HTTPException(400, "tickers required")
+    from src.signals import compute_signals_for_tickers
+    from src.registry import list_strategies
+
+    items = list_strategies()
+    # Get recent OOS Sharpe per strategy for weighting
+    from src.validation import run_walk_forward
+    weights: dict[str, float] = {}
+    for s in items:
+        try:
+            r = run_walk_forward(s["id"], req.tickers, period="1y", chunk=63)
+            if r is None or r.empty:
+                weights[s["id"]] = 0
+            else:
+                sharpe = float(r.iloc[0].get("mean_oos_sharpe", 0))
+                weights[s["id"]] = max(sharpe, 0)  # only positive sharpe strategies vote
+        except Exception:
+            weights[s["id"]] = 0
+
+    # Get current signals
+    sig_map = compute_signals_for_tickers(req.tickers, period=req.period)
+
+    out = []
+    for ticker in req.tickers:
+        n_long, n_short, n_flat = 0, 0, 0
+        long_w, short_w, flat_w = 0.0, 0.0, 0.0
+        long_strats, short_strats = [], []
+        for sid, sig, strength in sig_map.get(ticker, []):
+            w = max(weights.get(sid, 0.1), 0.1) * (strength or 0.3)
+            if sig == "long":
+                n_long += 1
+                long_w += w
+                long_strats.append((sid, w))
+            elif sig == "short":
+                n_short += 1
+                short_w += w
+                short_strats.append((sid, w))
+            else:
+                n_flat += 1
+                flat_w += w
+        total_w = long_w + short_w + flat_w + 1e-9
+        long_pct = round(long_w / total_w * 100, 1)
+        short_pct = round(short_w / total_w * 100, 1)
+
+        # Decision: weighted score with strategy count support
+        n_total = n_long + n_short + n_flat
+        long_ratio = n_long / max(n_total, 1)
+        short_ratio = n_short / max(n_total, 1)
+        score = long_pct - short_pct
+
+        # BUY: ≥25% strategies say long AND score ≥ 10
+        if long_ratio >= 0.25 and score >= 10:
+            decision = "BUY"
+            confidence = min(long_ratio * 120 + score * 0.8, 99)
+        # SELL: ≥15% say short AND score ≤ -5
+        elif short_ratio >= 0.15 and score <= -5:
+            decision = "SELL"
+            confidence = min(short_ratio * 120 + (-score) * 0.8, 99)
+        else:
+            decision = "HOLD"
+            confidence = round(100 - abs(score) * 2, 1)
+
+        long_strats.sort(key=lambda x: -x[1])
+        short_strats.sort(key=lambda x: -x[1])
+        out.append({
+            "ticker": ticker,
+            "decision": decision,
+            "confidence": round(confidence, 1),
+            "long_pct": long_pct,
+            "short_pct": short_pct,
+            "score": round(score, 1),
+            "long_strategies": [s for s, _ in long_strats[:5]],
+            "short_strategies": [s for s, _ in short_strats[:5]],
+            "n_long": n_long,
+            "n_short": n_short,
+            "n_flat": n_flat,
+        })
+    out.sort(key=lambda x: (x["decision"] != "BUY", -(x["score"])))
+    return {"as_of": req.period, "tickers": req.tickers, "decisions": out}
+
+
 @app.get("/api/families")
 def families() -> list[dict]:
     items = list_strategies()

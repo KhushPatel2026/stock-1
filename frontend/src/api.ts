@@ -39,6 +39,73 @@ export async function fetchTickers(): Promise<string[]> {
   return r.json()
 }
 
+export interface TickerSearchResult {
+  symbol: string
+  shortname: string
+  exchange: string
+  quoteType: string
+}
+
+export async function searchTickers(q: string): Promise<TickerSearchResult[]> {
+  if (!q) return []
+  const r = await fetch(`${API}/api/tickers/search?q=${encodeURIComponent(q)}&limit=10`)
+  if (!r.ok) return []
+  return r.json()
+}
+
+export interface Recommendation {
+  strategy_id: string
+  name: string
+  family: string
+  oos_sharpe?: number
+  total_return?: number
+  max_dd?: number
+  error?: string
+  reason?: string
+}
+
+export async function fetchRecommendations(tickers: string[], period: string = "1y"): Promise<{
+  as_of: string
+  tickers: string[]
+  ranked: Recommendation[]
+}> {
+  const r = await fetch(`${API}/api/recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tickers, period }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export interface Decision {
+  ticker: string
+  decision: "BUY" | "SELL" | "HOLD"
+  confidence: number
+  long_pct: number
+  short_pct: number
+  score: number
+  long_strategies: string[]
+  short_strategies: string[]
+  n_long: number
+  n_short: number
+  n_flat: number
+}
+
+export async function fetchDecisions(tickers: string[], period: string = "3mo"): Promise<{
+  as_of: string
+  tickers: string[]
+  decisions: Decision[]
+}> {
+  const r = await fetch(`${API}/api/decisions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tickers, period }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
 export async function fetchFamilies(): Promise<{ name: string; count: number }[]> {
   const r = await fetch(`${API}/api/families`)
   if (!r.ok) throw new Error("failed to fetch families")

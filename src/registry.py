@@ -9,7 +9,7 @@ from src.data import fetch_many
 _REGISTRY: list[dict] = []
 
 
-def _reg(strategy_id: str, module: str, family: str, description: str, fn_name: str = "backtest", params: dict | None = None, name: str | None = None):
+def _reg(strategy_id: str, module: str, family: str, description: str, fn_name: str = "backtest", params: dict | None = None, name: str | None = None, name_override: str | None = None, family_override: str | None = None, description_override: str | None = None):
     _REGISTRY.append({
         "id": strategy_id,
         "module": module,
@@ -18,7 +18,71 @@ def _reg(strategy_id: str, module: str, family: str, description: str, fn_name: 
         "family": family,
         "description": description,
         "default_params": params or {},
+        "name_override": name_override,
+        "family_override": family_override,
+        "description_override": description_override,
     })
+
+
+REASONS: dict[str, str] = {
+    "trend_following": "Long-only trend: 200DMA filter + 20/50 SMA cross + ADX>20. Only trades in confirmed uptrends. Best in sustained bull markets, worst in chop.",
+    "pairs_trading": "Market-neutral pair: dollar-neutral, bets on cointegration reversion. Pairs trade converges when the spread mean-reverts. Low beta to Nifty.",
+    "factors": "Multi-factor composite: ranks Nifty50 by momentum/value/quality/low-vol z-scores monthly. Holds top decile. Diversified across factors.",
+    "gap_fade": "Buys the close after intraday gap >2σ in either direction; exits next bar. Catches overreaction. Works best in mean-reverting regimes.",
+    "sector_momentum": "Within-sector long/short momentum. Longs the strongest stock in each sector, shorts the weakest. Sector-neutral exposure.",
+    "microstructure": "Volume >2×20d avg + close near high → next-day continuation. Daily proxy for order-flow imbalance.",
+    "beta_hedge": "Long stock + short beta × Nifty (synthetic). Captures stock-specific alpha, removes market exposure. Sharpe is alpha Sharpe.",
+    "ml_overlay": "HistGradientBoosting on price-derived factors, walk-forward CV, long top-N probabilities. ML meta-strategy on top of factor base.",
+    "options": "Black-Scholes 5% OTM 30d covered call. Sells premium against long stock. Income strategy; caps upside.",
+    "events": "Earnings spike (±5d, hold 10d) or quarterly rebalance (±10d) mean-reversion. Event-driven alpha.",
+    "risk_overlay": "10% maxDD kill-switch + 15% vol target + correlation >0.7 flag. Sits on top of any strategy.",
+    "walk_forward": "Rolling 504/126 train/test grid search. Reports OOS Sharpe — the only honest validation harness.",
+    "bollinger": "20d SMA ±2σ with 200d SMA trend filter. Mean-revert to middle band in uptrends only.",
+    "rsi2": "Connors RSI(2) < 5 → buy, exit on 5d SMA cross. Famous short-horizon reversal rule.",
+    "dual_momentum": "Antonacci: 12M absolute gate (market >0?) + relative cross-section top-N. Defensive (cash) when market regime is negative.",
+    "magic_formula": "Greenblatt EY+ROE composite (price-proxied: 12M return + return/vol). Top decile monthly. Cheap + profitable.",
+    "risk_parity": "Inverse-vol weighting. Top 10 by 12M momentum, weighted by 1/vol. Equal risk contribution.",
+    "dividend_carry": "Top quartile by static yield map. Monthly rebalance. Yield premium harvested without stock-selection alpha.",
+    "magic_formula_real": "Greenblatt with REAL yfinance .info fundamentals (EBIT/EV/ROE). Same logic, real data when available.",
+    "covered_call_real": "Covered call using real option chain when available, BS synthetic fallback for .NS.",
+    "donchian": "Turtle-style: close > 20d high → buy, close < 10d low → sell. Classic trend breakout.",
+    "keltner_break": "Close > EMA(20) + 2×ATR(14). Volatility-adjusted breakout.",
+    "aroon": "Aroon Up > 80 AND Aroon Up > Aroon Down. Pure trend-strength filter.",
+    "macd": "MACD line crosses signal. Classic trend-following signal.",
+    "supertrend": "ATR-based supertrend flip. Long-only when close > supertrend line.",
+    "ichimoku": "Above cloud + Tenkan/Kijun cross. Multi-factor trend confirmation.",
+    "hull_ma": "Hull MA slope flip. Faster-reacting trend signal than SMA.",
+    "parabolic_sar": "PSAR flip vs close. Wilder's stop-and-reverse system.",
+    "stochastic": "%K < 20 from oversold. Mean-reversion entry.",
+    "williams_r": "%R < -80 → reversal. Similar to RSI.",
+    "cci": "CCI < -100 → reversal. Commodity channel adapted to equities.",
+    "mfi": "Money Flow Index < 20. Volume-weighted mean reversion.",
+    "keltner_mr": "Close < EMA - 2×ATR. Vol-adjusted mean reversion.",
+    "zscore_mr": "Z-score of close vs SMA(20) < -2 with SMA200 trend filter.",
+    "ou_process": "Ornstein-Uhlenbeck mean reversion on single ticker. Continuous-time model fit, traded via z-score.",
+    "vol_breakout": "Daily range > k×ATR. Volatility expansion trade, one-day hold.",
+    "vol_targeting": "Scale positions to 15% annualized vol target. Reduces risk in high-vol regimes.",
+    "vol_regime": "Only trade when realized vol > 252d median. Volatility filter.",
+    "garch_lite": "EWMA vol forecast vs realized. Trades volatility expansion.",
+    "obv": "On-Balance Volume vs OBV-SMA cross. Volume-confirmed trend.",
+    "vwap_dev": "Close vs rolling VWAP. Mean-reversion to VWAP.",
+    "vpt": "Volume-Price Trend. Cumulative volume × return. Trend confirmation.",
+    "ad_line": "Accumulation/Distribution line. Smart-money proxy.",
+    "engulfing": "Bullish engulfing reversal pattern.",
+    "hammer": "Hammer / shooting star reversal. Japanese candlestick.",
+    "three_soldiers": "Three white soldiers. Three consecutive strong bullish candles.",
+    "double_top": "Double top / bottom breakout. Classic chart pattern.",
+    "low_vol": "Bottom decile by 60d realized vol. Low-volatility anomaly.",
+    "quality": "Top decile by return / vol ratio. Quality = efficient return generation.",
+    "value": "Top decile by price-vs-SMA200 discount. Value proxy when fundamentals unavailable.",
+    "size_factor": "Bottom decile by 20d avg $-volume. Size proxy (smaller = higher).",
+    "high_52w": "Closest to 52w high. Momentum via 52w-high proximity.",
+    "breakout_volume": "Donchian breakout gated by volume >1.5× 20d avg. Higher-quality breakouts only.",
+    "intraday_orb": "Opening Range Breakout on 60m bars. First hour range, buy high break.",
+    "intraday_vwap": "VWAP reversion on 60m bars. Fade deviations > 1.5σ from VWAP.",
+    "intraday_mom": "Intraday momentum: close > 20-bar SMA + volume confirmation, EOD exit.",
+    "overnight_drift": "Close-to-open drift: buy at close, sell at next open. Captures overnight gap.",
+}
 
 
 # FEAT-001..005 (12 existing with backtest)
@@ -38,9 +102,9 @@ _reg("ml_overlay", "src.ml_overlay", "ML", "HistGradientBoosting on factors, wal
 # FEAT-001..005 wrappers added
 _reg("trend_following", "src.portfolio", "Trend", "SMA200 filter + SMA20/50 cross + ADX>20 + ATR SL/TP.")
 _reg("pairs_trading", "src.pair_portfolio", "Stat-arb", "Engle-Granger cointegration pair trade, dollar-neutral, Indian costs.")
-_reg("covered_call", "src.options", "Options", "Black-Scholes 5% OTM 30d covered call.")
-_reg("earnings_drift", "src.events", "Event", "Earnings spike (proxy 3σ) ±5d → hold 10d.")
-_reg("rebalance_drift", "src.events", "Event", "Quarterly rebalance ±10d mean-reversion.", fn_name="backtest_rebalance")
+_reg("covered_call", "src.options", "Options", "Black-Scholes 5% OTM 30d covered call.", name_override="Covered Call (BS)")
+_reg("earnings_drift", "src.events", "Event", "Earnings spike (proxy 3σ) ±5d → hold 10d.", name_override="Earnings Drift")
+_reg("rebalance_drift", "src.events", "Event", "Quarterly rebalance ±10d mean-reversion.", fn_name="backtest_rebalance", name_override="Index Rebalance Drift")
 
 # FEAT-006 — Trend (8)
 _reg("donchian", "src.donchian", "Trend", "N-day high breakout.")
@@ -80,47 +144,50 @@ _reg("three_soldiers", "src.three_soldiers", "Pattern", "Three white soldiers.")
 _reg("double_top", "src.double_top", "Pattern", "Double top/bottom breakout.")
 
 # FEAT-006 — Factor (5)
-_reg("low_vol", "src.low_vol", "Factor", "Bottom decile by realized vol.")
-_reg("quality", "src.quality", "Factor", "Return-per-risk top decile.")
-_reg("value", "src.value", "Factor", "Price vs SMA200 discount (proxy).")
-_reg("size_factor", "src.size_factor", "Factor", "Bottom decile by ADV (size proxy).")
-_reg("high_52w", "src.high_52w", "Factor", "Closest to 52w high.")
+_reg("low_vol", "src.low_vol", "Factor", "Bottom decile by realized vol.", name_override="Low Volatility Factor")
+_reg("quality", "src.quality", "Factor", "Return-per-risk top decile.", name_override="Quality Factor")
+_reg("value", "src.value", "Factor", "Price vs SMA200 discount (proxy).", name_override="Value Factor (Price Proxy)")
+_reg("size_factor", "src.size_factor", "Factor", "Bottom decile by ADV (size proxy).", name_override="Size Factor (ADV Proxy)")
+_reg("high_52w", "src.high_52w", "Factor", "Closest to 52w high.", name_override="52-Week High Momentum")
 _reg("breakout_volume", "src.breakout_volume", "Trend", "Donchian breakout gated by volume >1.5x avg.")
 
 # FEAT-007 — Real fundamentals + real options
-_reg("magic_formula_real", "src.magic_formula", "Factor", "Greenblatt with REAL yfinance .info (EBIT/EV/ROE) when available.", params={"use_real_fundamentals": True})
-_reg("covered_call_real", "src.options_real", "Options", "Covered call using real option chains when available, BS fallback otherwise.")
+_reg("magic_formula_real", "src.magic_formula", "Factor", "Greenblatt with REAL yfinance .info (EBIT/EV/ROE) when available.", params={"use_real_fundamentals": True}, name_override="Magic Formula (Real Fundamentals)")
+_reg("covered_call_real", "src.options_real", "Options", "Covered call using real option chains when available, BS fallback otherwise.", name_override="Covered Call (Real Chain)")
 
 # FEAT-008 — Intraday (4)
-_reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb")
-_reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap")
-_reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom")
-_reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight")
+_reg("intraday_orb", "src.intraday", "Intraday", "Opening Range Breakout (60m).", fn_name="backtest_orb", name_override="Opening Range Breakout")
+_reg("intraday_vwap", "src.intraday", "Intraday", "VWAP Reversion (60m).", fn_name="backtest_vwap", name_override="VWAP Reversion")
+_reg("intraday_mom", "src.intraday", "Intraday", "Intraday Momentum (60m).", fn_name="backtest_mom", name_override="Intraday Momentum")
+_reg("overnight_drift", "src.intraday", "Intraday", "Close-to-Open drift (daily).", fn_name="backtest_overnight", name_override="Overnight Drift")
 
 
 def list_strategies() -> list[dict]:
-    """Return metadata for all registered strategies (id, name, family, description, default_params)."""
+    """Return metadata for all registered strategies (id, name, family, description, default_params, reason)."""
     out = []
     for s in _REGISTRY:
         params = dict(s["default_params"])
-        # introspect META if available
+        name_override = s.get("name_override")
+        desc_override = s.get("description_override")
+        fam_override = s.get("family_override")
         try:
             mod = importlib.import_module(s["module"])
             if hasattr(mod, "META") and isinstance(mod.META, dict):
                 params = {**mod.META.get("params", {}), **params}
-                fam = s["family"] or mod.META.get("family", "Other")
-                desc = mod.META.get("description", s["description"])
-                name = mod.META.get("name", s["id"])
+                fam = fam_override or s["family"] or mod.META.get("family", "Other")
+                desc = desc_override or mod.META.get("description", s["description"])
+                name = name_override or mod.META.get("name", s["id"])
             else:
-                fam, desc, name = s["family"], s["description"], s["name"]
+                fam, desc, name = (fam_override or s["family"]), (desc_override or s["description"]), (name_override or s["name"])
         except Exception:
-            fam, desc, name = s["family"], s["description"], s["name"]
+            fam, desc, name = (fam_override or s["family"]), (desc_override or s["description"]), (name_override or s["name"])
         out.append({
             "id": s["id"],
             "name": name,
             "family": fam,
             "description": desc,
             "params": params,
+            "reason": REASONS.get(s["id"], ""),
         })
     return out
 
